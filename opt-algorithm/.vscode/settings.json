@@ -1,0 +1,3 @@
+{
+    "python.analysis.extraPaths": ["./restful_routing_project/routing_app"]
+}

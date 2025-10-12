@@ -1,0 +1,13 @@
+data/
+exp/
+full_ply/
+npy/
+output/
+rabbitmq-worker/
+segment_result/
+visu.ply
+volume_from_segmented_ply
+jupyter.log
+train.log
+Miniconda3-latest-Linux-x86_64.sh
+torch-2.2.0+cu121-cp310-cp310-linux_x86_64.whl

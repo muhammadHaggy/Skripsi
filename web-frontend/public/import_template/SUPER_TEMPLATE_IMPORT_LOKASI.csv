@@ -1,0 +1,3 @@
+loc_id,name,address,provinsi,kabupaten_kota,kecamatan,desa_kelurahan,kode_pos,dc,open_hour,close_hour,service_time,location_type
+IDN-BAN-99999,ALFAMART Banten,"JALAN RAYA CILEGON KM. 3,5 KOTA SERANG 42162 KOTA SERANG 616 42162",Banten,Banten,Banten,Banten,0,DC Banten,08:01,17:00,40,Mini Market
+IDN-JKT-99999,ALFAMART Jakarta,"JALAN RAYA CILEGON KM. 3,5 KOTA SERANG 42162 KOTA SERANG 616 42162",DKI Jakarta,Kota Jakarta Selatan,Pesangrahan,Banten,0,DC Jakarta,08:00,17:00,21,Super Market

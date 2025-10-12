@@ -1,0 +1,20 @@
+# ninja log v5
+1	23312	1742914080386051954	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/attention/attention_cuda.o	9370f14357716371
+0	23874	1742914080948060749	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/aggregation/aggregation_cuda.o	1f28b5e9b73d66c7
+3	30035	1742914087136157599	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/ball_query/ball_query_cuda.o	bd985fea3622405d
+22	31053	1742914088145173391	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/knn_query/knn_query_cuda.o	3991b0f73040f721
+7	31153	1742914088255175112	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/grouping/grouping_cuda.o	4bc9223cf90edf1e
+33	31468	1742914088567179995	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/random_ball_query/random_ball_query_cuda.o	91dba32faace42a6
+15	32626	1742914089726198135	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/interpolation/interpolation_cuda.o	3c2df3411c288458
+47	34102	1742914091200221205	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/subtraction/subtraction_cuda.o	73e026246a76ec5f
+41	35637	1742914092741245323	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/sampling/sampling_cuda.o	37cdd6a0419ee085
+47	50105	1742914107199471608	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/sampling/sampling_cuda_kernel.o	fce1fd1b6f621082
+11	50693	1742914107784480763	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/grouping/grouping_cuda_kernel.o	733729eb703128df
+1	50706	1742914107780480701	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/aggregation/aggregation_cuda_kernel.o	3dd5f564c336fd55
+41	50854	1742914107948483330	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/random_ball_query/random_ball_query_cuda_kernel.o	818de81bd7887ae2
+2	51033	1742914108125486100	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/attention/attention_cuda_kernel.o	76d92dc2e3163ccf
+19	51297	1742914108384490154	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/interpolation/interpolation_cuda_kernel.o	13caad155609a2c3
+5	51311	1742914108384490154	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/ball_query/ball_query_cuda_kernel.o	f8d203a8ff144d71
+27	51814	1742914108902498261	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/knn_query/knn_query_cuda_kernel.o	7d24dd4f962905a7
+32	55428	1742914112512554762	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/pointops_api.o	dd28cf237d374b16
+23327	66375	1742914123467726220	/home/cluster-dgxa100/llogistik/Pointcept/libs/pointops/build/temp.linux-x86_64-cpython-310/src/subtraction/subtraction_cuda_kernel.o	ba5b33e191d3e654

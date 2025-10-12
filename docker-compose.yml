@@ -1,0 +1,133 @@
+version: "3.9"
+
+networks:
+  tms_net:
+    name: tms_net
+
+volumes:
+  db_data:
+  storage_uploads:
+
+services:
+  # API Gateway stack
+  db:
+    image: postgres:16
+    container_name: api_gateway_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=paragon
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - tms_net
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: api_gateway_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - tms_net
+
+  api_gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api_gateway
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - ./api-gateway/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/paragon?schema=public
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    ports:
+      - "8080:8080"
+    restart: always
+    command: sh -c "npx prisma migrate deploy && node index.js"
+    networks:
+      - tms_net
+
+  api_gateway_tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: api_gateway_tunnel
+    depends_on:
+      - api_gateway
+    command: tunnel run --token ${API_GATEWAY_TUNNEL_TOKEN}
+    restart: always
+    networks:
+      - tms_net
+
+  # Storage service
+  storage_service:
+    build:
+      context: ./storage
+      dockerfile: Dockerfile
+    container_name: storage_service
+    ports:
+      - "8081:8081"
+    volumes:
+      - storage_uploads:/app/uploads
+    env_file:
+      - ./storage/.env
+    restart: always
+    networks:
+      - tms_net
+
+  storage_tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: storage_tunnel
+    command: tunnel --no-autoupdate run --token ${STORAGE_TUNNEL_TOKEN}
+    depends_on:
+      - storage_service
+    restart: always
+    networks:
+      - tms_net
+
+  # Worker
+  tmslastmile_worker:
+    image: python:3.10-slim
+    container_name: tmslastmile_worker
+    working_dir: /app
+    env_file:
+      - ./tmslastmile-worker/.env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - EXCHANGE=box_exchange
+      - ROUTING_KEY=box.job
+      - AUDIT_KEY=box.audit
+      - BACKEND_API=http://api_gateway:8080/api/v1/box/dimension-result
+      - ML_ROOT=/ml
+    volumes:
+      - ./tmslastmile-worker:/app
+      - ./machine-learning:/ml:rw
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && python main.py"
+    depends_on:
+      - api_gateway
+      - storage_service
+      - rabbitmq
+    networks:
+      - tms_net
+
+

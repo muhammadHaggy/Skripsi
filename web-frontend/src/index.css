@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+@layer base{
+  h1 {
+    @apply font-montserrat font-bold text-[40px]
+  }
+  h2 {
+    @apply font-montserrat font-bold text-[32px]
+  }
+  h3 {
+    @apply font-montserrat font-bold text-[24px]
+  }
+  h4 {
+    @apply font-montserrat font-bold text-[18px]
+  }
+  p {
+    @apply font-inter text-[12px]
+  }
+}
+
+.text-button { 
+  @apply font-inter font-semibold text-[16px] text-neutral-10 inline-flex w-full justify-center rounded-lg px-6 py-2 text-sm shadow-sm disabled:bg-neutral-40 sm:min-w-[132px] sm:w-auto
+}
+
+.text-button-m { 
+  @apply font-inter font-semibold text-[16px] text-neutral-10 inline-flex w-full justify-center rounded-lg px-6 py-3 text-sm shadow-sm disabled:bg-neutral-40 sm:min-w-[132px] sm:w-auto
+}
+
+.text-modal-title { 
+  @apply font-inter font-semibold text-[16px]
+}
+
+.text-modal-button { 
+  @apply font-inter font-semibold text-[16px] text-neutral-10 inline-flex w-full justify-center rounded-lg px-6 py-2 text-sm shadow-sm disabled:bg-neutral-40 sm:ml-3 sm:w-auto
+}
+
+.text-table-info, .small-header { 
+  @apply font-inter font-semibold text-[16px] text-black
+}
+
+.s-p-med { 
+  @apply font-inter font-medium text-[12px]
+}
+
+.s-p-reg { 
+  @apply font-inter text-[12px]
+}
+
+.m-p-med { 
+  @apply font-inter font-medium text-[14px]
+}
+
+.m-p-reg { 
+  @apply font-inter text-[14px]
+}
+
+.btn-primary {
+  @apply bg-primary hover:bg-primary-hover active:bg-primary-pressed
+}
+
+.btn-primary-outline {
+  @apply bg-white border border-primary text-primary hover:border-primary-hover hover:text-primary-hover active:border-primary-pressed active:text-primary-pressed
+}
+
+.btn-danger {
+  @apply bg-danger hover:bg-danger-hover active:bg-danger-pressed
+}
+
+.btn-danger-outline {
+  @apply bg-white border border-danger text-danger hover:border-danger-hover hover:text-danger-hover active:border-danger-pressed active:text-danger-pressed
+}
+
+.btn-warning {
+  @apply bg-warning hover:bg-warning-hover active:bg-warning-pressed
+}
+
+.btn-warning-outline {
+  @apply bg-white border border-warning text-warning hover:border-warning-hover hover:text-warning-hover active:border-warning-pressed active:text-warning-pressed
+}
+
+.btn-success {
+  @apply bg-success hover:bg-success-hover active:bg-success-pressed
+}
+
+.btn-success-outline {
+  @apply bg-white border border-success text-success hover:border-success-hover hover:text-success-hover active:border-success-pressed active:text-success-pressed
+}
+
+body {
+  background-color: #E5E7EB;
+}

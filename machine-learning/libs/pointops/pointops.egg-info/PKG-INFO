@@ -1,0 +1,6 @@
+Metadata-Version: 2.2
+Name: pointops
+Version: 1.0
+Requires-Dist: torch
+Requires-Dist: numpy
+Dynamic: requires-dist

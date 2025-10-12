@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "box" ADD COLUMN     "dgx_id" INTEGER NOT NULL DEFAULT 0;
