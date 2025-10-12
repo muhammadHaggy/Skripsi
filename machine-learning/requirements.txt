@@ -126,7 +126,6 @@ pillow==11.0.0
 platformdirs==4.3.7
 plotly==6.0.1
 plyfile==1.1
-"git+https://github.com/Silverster98/pointops.git"
 portalocker==3.1.1
 prometheus_client==0.21.1
 prompt_toolkit==3.0.50
