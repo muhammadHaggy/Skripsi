@@ -17,7 +17,7 @@ beautifulsoup4==4.13.3
 bleach==6.2.0
 blinker==1.9.0
 ccimport==0.4.4
-certifi @ file:///home/conda/feedstock_root/build_artifacts/certifi_1739515848642/work/certifi
+certifi>=2024.2.0
 cffi==1.17.1
 charset-normalizer==2.1.1
 click==8.1.8
@@ -171,11 +171,11 @@ threadpoolctl==3.6.0
 timm==1.0.15
 tinycss2==1.4.0
 tomli==2.2.1
-torch @ file:///home/cluster-dgxa100/llogistik/Pointcept/torch-2.2.0%2Bcu121-cp310-cp310-linux_x86_64.whl#sha256=c441021672ebe2e5afbdb34817aa85e6d32130f94df2da9ad4cb78a9d4b81370
+torch==2.2.0
 torch-geometric==2.6.1
 torch_scatter==2.1.2+pt22cu121
-torchaudio==2.2.0+cu121
-torchvision==0.17.0+cu121
+torchaudio==2.2.0
+torchvision==0.17.0
 tornado==6.4.2
 tqdm==4.67.1
 traitlets==5.14.3
