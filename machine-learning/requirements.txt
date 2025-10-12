@@ -173,9 +173,6 @@ tinycss2==1.4.0
 tomli==2.2.1
 torch==2.2.0
 torch-geometric==2.6.1
-torch_scatter==2.1.2+pt22cu121
-torchaudio==2.2.0
-torchvision==0.17.0
 tornado==6.4.2
 tqdm==4.67.1
 traitlets==5.14.3
