@@ -9,13 +9,7 @@ export const app = express();
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (origin) {
-        callback(null, origin);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: true, 
     credentials: true,
   })
 );
