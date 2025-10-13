@@ -5,6 +5,7 @@ import asyncio
 import sys
 from datetime import datetime
 import re
+import random
 import requests
 import subprocess
 from dotenv import load_dotenv
@@ -60,64 +61,20 @@ def send_to_backend(box_id, length, width, height, volume):
         logger.error(f"Error sending POST to backend: {e}")
 
 async def run_ml_scripts(box_id, dgx_id, file_path):
-    if ML_ROOT:
-        POINTCEPT_DIR = Path(ML_ROOT)
-    else:
-        # Fallback to two levels up from this file
-        POINTCEPT_DIR = Path(__file__).resolve().parents[2]
-    logger.info(f"ML scripts will be run from: {POINTCEPT_DIR}")
     try:
-        PYTHON_PATH = PYTHON_PATH_ENV or sys.executable
+        logger.info("MOCK: Skipping ML pipeline and generating random dimensions.")
 
-        commands = [
-            f"{PYTHON_PATH} ply_to_txt.py -n box-{box_id}-{dgx_id}-txt -r {file_path}",
-            f"{PYTHON_PATH} add_color.py -n box-{box_id}-{dgx_id}-color -r data/box-{box_id}-{dgx_id}-txt/box-{box_id}-{dgx_id}-txt/box-{box_id}-{dgx_id}-txt/Annotations/box-{box_id}-{dgx_id}-txt.txt",
-            f"{PYTHON_PATH} preprocess.py --dataset_root data/box-{box_id}-{dgx_id}-txt --output_root data/custom_box/output-preprocess/box-{box_id}-{dgx_id}",
-            f"sh scripts/pred.sh -g 1 -p {PYTHON_PATH} -d custom_box -n semseg_pt_v3m1_s3dis_2_custom_box_f -w model_best -s output-preprocess/box-{box_id}-{dgx_id}/box-{box_id}-{dgx_id}-txt",
-            f"{PYTHON_PATH} volume-est.py {file_path} exp/custom_box/semseg_pt_v3m1_s3dis_2_custom_box_f/result/box-{box_id}-{dgx_id}-txt.npy"
-        ]
-        
-        for command in commands:
-            
-            logger.info(f"Running command: {command}") 
+        length = round(random.uniform(5.0, 120.0), 2)
+        width = round(random.uniform(5.0, 120.0), 2)
+        height = round(random.uniform(5.0, 120.0), 2)
+        volume = round(length * width * height, 2)
 
-            result = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: subprocess.run(
-                    command,
-                    shell=True,
-                    cwd=POINTCEPT_DIR,
-                    capture_output=True,
-                    text=True
-                )
-            )
+        logger.info(f"Mocked Dimensions: {length}cm × {width}cm × {height}cm")
+        logger.info(f"Mocked Volume: {volume} cm³")
 
-            if result.returncode != 0:
-                logger.error(f"Error during {command} execution: {result.stderr}")
-                return False
-
-        volume_output = result.stdout
-        logger.info(f"Volume-est output: {volume_output}")
-        
-        dimension_match = re.search(r"Dimensions \(L×W×H\): (\d+(?:\.\d+)?) cm × (\d+(?:\.\d+)?) cm × (\d+(?:\.\d+)?) cm", volume_output)
-        volume_match = re.search(r"Volume: (\d+(?:\.\d+)?) cm³", volume_output)
-
-        if dimension_match and volume_match:
-            length = float(dimension_match.group(1))
-            width = float(dimension_match.group(2))
-            height = float(dimension_match.group(3))
-            volume = float(volume_match.group(1))
-
-            logger.info(f"Extracted Dimensions: {length}cm × {width}cm × {height}cm")
-            logger.info(f"Extracted Volume: {volume} cm³")
-
-            return (length, width, height, volume)
-        else:
-            logger.error("Failed to extract dimensions and volume from the output.")
-            return False
-
+        return (length, width, height, volume)
     except Exception as e:
-        logger.error(f"Error during ML script execution: {e}")
+        logger.error(f"Error during mock ML execution: {e}")
         return False
 
 async def on_message_callback(message: AbstractIncomingMessage, channel):
