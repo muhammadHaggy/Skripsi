@@ -22,6 +22,7 @@ import {
 } from "../repositories/shipment-repository.js";
 import { IdGenerator } from "../utils/helper.js";
 import axios from "axios";
+import { logger } from "../config/logging.js";
 
 const priorityOptimizationService = async (request) => {
   const dc_id = parseInt(request.headers.dc_id);
@@ -60,7 +61,23 @@ const priorityOptimizationService = async (request) => {
         "Content-Type": "application/json",
       },
     });
-
+    try {
+      logger.info({
+        msg: "priority-opt upstream request",
+        url: apiUrl,
+        trucks_count: Array.isArray(trucks) ? trucks.length : "undefined",
+        do_count: Array.isArray(delivery_orders) ? delivery_orders.length : "undefined",
+        dest_loc_count: Array.isArray(dest_location) ? dest_location.length : "undefined",
+        ori_loc_count: Array.isArray(origin_location) ? origin_location.length : "undefined",
+        priority,
+      });
+      logger.info({
+        msg: "priority-opt upstream response",
+        status: response?.status,
+        data_type: Array.isArray(response?.data) ? "array" : typeof response?.data,
+        shipments_preview: Array.isArray(response?.data) && response.data.length > 0 ? response.data[0] : null,
+      });
+    } catch (_) {}
     const response_data = response.data;
     const shipments = [];
     const failedDO = [];
@@ -176,6 +193,15 @@ const priorityOptimizationService = async (request) => {
       status: 200,
     };
   } catch (error) {
+    try {
+      logger.error({
+        msg: "priority-opt upstream error",
+        url: apiUrl,
+        error_message: error?.message,
+        status: error?.response?.status,
+        data: error?.response?.data,
+      });
+    } catch (_) {}
     return {
       status: error?.response?.status || 500,
       message: error?.message || "Unknown error",
