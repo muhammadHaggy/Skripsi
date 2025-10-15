@@ -127,6 +127,7 @@ services:
       - api_gateway
       - storage_service
       - rabbitmq
+    restart: always
     networks:
       - tms_net
 
