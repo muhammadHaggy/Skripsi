@@ -64,9 +64,25 @@ export default function ThreeScene({ apiResponse }) {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    mountRef.current.appendChild(renderer.domElement);
+    
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      mountRef.current.appendChild(renderer.domElement);
+    } catch (error) {
+      console.error('WebGL initialization failed:', error);
+      if (mountRef.current) {
+        mountRef.current.innerHTML = `
+          <div style="padding: 20px; text-align: center; color: #e74c3c;">
+            <h3>WebGL Not Available</h3>
+            <p>Your browser does not support WebGL or it is disabled.</p>
+            <p>Please enable WebGL in your browser settings or use a different browser.</p>
+          </div>
+        `;
+      }
+      return;
+    }
 
     const labelRenderer = new CSS2DRenderer();
     labelRenderer.setSize(window.innerWidth, window.innerHeight);

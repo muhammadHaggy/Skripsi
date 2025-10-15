@@ -51,11 +51,11 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
 
 
   const deliveryOrders = pengiriman.delivery_orders.map(order => ({
-    location: order.loc_dest.customer.name,
-    address: order.loc_dest.address,
+    location: order.loc_dest?.customer?.name || 'N/A',
+    address: order.loc_dest?.address || 'N/A',
     startTime: "08:00 WIB",
     endTime: "17:00 WIB",
-    distance: `${order.loc_ori.dist_to_origin} Km`,
+    distance: `${order.loc_ori?.dist_to_origin || 0} Km`,
     arrivalTime: order.eta || 'N/A',
     departureTime: order.etd || 'N/A'
   }));
@@ -155,13 +155,13 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
               <div>
                 <p className="text-xs text-gray-600">Total Volume Muatan</p>
                 <p className="text-sm">
-                {`${pengiriman.current_capacity.toLocaleString('id-ID')} m³`}
+                {`${(pengiriman.current_capacity || 0).toLocaleString('id-ID')} m³`}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-600">Total Biaya</p>
                 <p className="text-sm">
-                {`Rp${pengiriman.shipment_cost.toLocaleString('id-ID')},00`}
+                {`Rp${(pengiriman.shipment_cost || 0).toLocaleString('id-ID')},00`}
                 </p>
               </div>
             </div>
@@ -172,19 +172,19 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
             <div className="border border-primary-border rounded-lg p-4 grid grid-cols-4 gap-4">
               <div>
                 <p className="text-xs text-gray-600">Nomor Plat</p>
-                <p className="text-sm">{pengiriman.truck.plate_number}</p>
+                <p className="text-sm">{pengiriman.truck?.plate_number || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-600">Distribution Center</p>
-                <p className="text-sm">{pengiriman.truck.dc.name}</p>
+                <p className="text-sm">{pengiriman.truck?.dc?.name || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-600">Tipe Truk</p>
-                <p className="text-sm">{pengiriman.truck.truck_type.name}</p>
+                <p className="text-sm">{pengiriman.truck?.truck_type?.name || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-600">Volume Maksimal</p>
-                <p className="text-sm">{`${pengiriman.truck.max_individual_capacity_volume.toLocaleString('id-ID')} m³`}</p>
+                <p className="text-sm">{`${(pengiriman.truck?.max_individual_capacity_volume || 0).toLocaleString('id-ID')} m³`}</p>
               </div>
             </div>
           </div>
@@ -212,7 +212,7 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
                   <div className="flex-1 bg-gray-50 p-4 rounded-lg">
                     <div className="justify-between mb-2">
                       <div>
-                        <h4 className="font-medium">{route.customer.name}</h4>
+                        <h4 className="font-medium">{route.customer?.name || 'N/A'}</h4>
                         <div className="mb-1">
                           <h7 className="font-medium">{route.loc_do.join(", ")}</h7>
                           <div className="text-sm text-gray-600">Jumlah Box: {route.box_count} Box</div>
