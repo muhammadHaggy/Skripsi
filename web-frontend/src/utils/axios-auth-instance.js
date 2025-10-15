@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const axiosAuthInstance = axios.create({
-  baseURL: process.env.REACT_APP_BACKEND_URL,
+  baseURL: "https://skripsi-gateway.muhammadhaggy.com",
   withCredentials: true
 })
 
