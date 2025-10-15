@@ -25,4 +25,5 @@ EXPOSE 8000
 
 RUN pip list
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Run migrations before starting the development server
+CMD sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"

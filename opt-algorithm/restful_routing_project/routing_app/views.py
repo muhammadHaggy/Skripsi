@@ -90,19 +90,34 @@ def get_location_dataframe(locations):
 
 def get_trucks_model_sorted(trucks):
     trucks_model = []
+    if not isinstance(trucks, list):
+        trucks = list(trucks) if trucks else []
     for truck in trucks:
+        if not isinstance(truck, dict):
+            continue
+        truck_type = truck.get("truck_type") or {}
+        type_name = truck_type.get("name") or ""
+        try:
+            max_capacity = float(truck.get("max_individual_capacity_volume") or 0)
+        except (TypeError, ValueError):
+            max_capacity = 0.0
+        try:
+            current_volume = float(truck.get("current_volume") or 0)
+        except (TypeError, ValueError):
+            current_volume = 0.0
+
         truck_model = Truck(
-            id = truck["id"],
-            plate_number = truck['plate_number'],
-            type_id = truck["type_id"],
-            dc_id = truck["dc_id"],
-            type_name = truck["truck_type"]["name"],
-            max_individual_capacity_volume = float(truck["max_individual_capacity_volume"]),
-            current_volume = 0,
-            cluster_order = -1
+            id=truck.get("id"),
+            plate_number=truck.get('plate_number'),
+            type_id=truck.get("type_id"),
+            dc_id=truck.get("dc_id"),
+            type_name=type_name,
+            max_individual_capacity_volume=max_capacity,
+            current_volume=current_volume,
+            cluster_order=-1
         )
         trucks_model.append(truck_model)
-    return sorted(trucks_model, key=lambda truck: truck.get_max_capacity(), reverse=True)
+    return sorted(trucks_model, key=lambda t: t.get_max_capacity(), reverse=True)
 
 @api_view(["GET"])
 def testing(request, format=None):
