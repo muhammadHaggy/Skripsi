@@ -42,7 +42,7 @@ const Login = () => {
         };
 
         try {
-            axios.defaults.baseURL = "https://skripsi-gateway.muhammadhaggy.com";
+            axios.defaults.baseURL = "https://skripsi-gateway.muhammadhaggy.com/api/v1";
 
             const response = await axios.post("/login", userData);
             if(response.status === 200){

@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const axiosAuthInstance = axios.create({
-  baseURL: "https://skripsi-gateway.muhammadhaggy.com",
+  baseURL: "https://skripsi-gateway.muhammadhaggy.com/api/v1",
   withCredentials: true
 })
 
