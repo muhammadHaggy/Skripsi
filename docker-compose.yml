@@ -132,3 +132,27 @@ services:
       - tms_net
 
 
+  # Web Frontend
+  web_frontend:
+    build:
+      context: ./web-frontend
+      dockerfile: Dockerfile
+    container_name: web-frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./web-frontend/.env
+    restart: always
+    networks:
+      - tms_net
+
+  web_frontend_tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: web_frontend_tunnel
+    depends_on:
+      - web_frontend
+    command: tunnel --no-autoupdate run --token ${WEB_FRONTEND_TUNNEL_TOKEN}
+    restart: always
+    networks:
+      - tms_net
+
