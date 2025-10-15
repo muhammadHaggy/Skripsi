@@ -99,13 +99,25 @@ const priorityOptimizationService = async (request) => {
         }
 
         const truck = await getTruckbyID(shipment.id_truck);
-        const fuel_consumption = parseInt(
-          truck.fuel_consumption_liters_per_km.split(":")[1]
-        );
-        const fuel_total = shipment.total_dist / 1000 / fuel_consumption;
-        const cost_id = await getCostId(truck.id);
-        const bbm_cost = await getCost(cost_id);
-        const total_cost = bbm_cost.cost_value * fuel_total;
+        let fuel_consumption = 0;
+        try {
+          const fcRaw = truck?.fuel_consumption_liters_per_km;
+          if (typeof fcRaw === "string" && fcRaw.includes(":")) {
+            const parts = fcRaw.split(":");
+            fuel_consumption = parseFloat(parts[1]);
+          } else if (typeof fcRaw === "number") {
+            fuel_consumption = fcRaw;
+          }
+        } catch (_) {}
+        const fuel_total = fuel_consumption > 0 ? shipment.total_dist / 1000 / fuel_consumption : 0;
+        let total_cost = 0;
+        try {
+          const cost_id = await getCostId(truck.id);
+          const bbm_cost = await getCost(cost_id);
+          total_cost = (bbm_cost?.cost_value || 0) * fuel_total;
+        } catch (e) {
+          try { logger.warn({ msg: "priority-opt cost lookup failed", error_message: e?.message }); } catch (_) {}
+        }
 
         shipments.push({
           truck,
@@ -203,6 +215,8 @@ const priorityOptimizationService = async (request) => {
       });
     } catch (_) {}
     return {
+      shipments: [],
+      failedDO: [],
       status: error?.response?.status || 500,
       message: error?.message || "Unknown error",
     };

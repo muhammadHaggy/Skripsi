@@ -40,13 +40,23 @@ const priorityOptimizationController = async (request, response, next) => {
           failed_do_preview: Array.isArray(failedDO) && failedDO.length > 0 ? failedDO[0] : null,
         });
       } catch (_) {}
+      const safeShipments = Array.isArray(shipments) ? shipments : [];
+      const safeFailed = Array.isArray(failedDO) ? failedDO : [];
       const responseData = {
-        shipments: shipments,
-        failed_delivery_orders: failedDO[0],
+        shipments: safeShipments,
+        failed_delivery_orders: safeFailed, // return array for clarity
       };
       response
-        .status(200)
-        .json(HTTPResponse(true, status, "Success", responseData, null));
+        .status(status || 200)
+        .json(
+          HTTPResponse(
+            (status || 200) === 200,
+            status || 200,
+            (status || 200) === 200 ? "Success" : "Failed",
+            responseData,
+            null
+          )
+        );
     } else {
       response
         .status(401)
