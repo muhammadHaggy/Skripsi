@@ -12,7 +12,17 @@ from skopt.utils import use_named_args
 from datetime import datetime
 
 config = Config(RepositoryEnv('.env'))
-API_KEY = config('API_KEY')
+# Support both API_KEY and GOOGLE_MAPS_API_KEY from .env
+API_KEY = None
+try:
+    API_KEY = config('API_KEY', default=None)
+except Exception:
+    API_KEY = None
+if not API_KEY:
+    try:
+        API_KEY = config('GOOGLE_MAPS_API_KEY', default=None)
+    except Exception:
+        API_KEY = None
 
 def calculate_gamma1(visited_nodes, all_nodes, df):
     total_demand_visited = sum(df.at[node, 'demand'] for node in visited_nodes)
@@ -135,9 +145,40 @@ def validate_distance(locations, distances):
                     print(result)
 
 def get_directions(origin, destination):
-    gmaps = googlemaps.Client(key=API_KEY)
-    directions = gmaps.directions(origin, destination, mode="driving")
-    return directions
+    # Try Google Directions if key is available; otherwise or on failure, fallback to geodesic-based estimate
+    if API_KEY:
+        try:
+            gmaps_client = googlemaps.Client(key=API_KEY)
+            return gmaps_client.directions(origin, destination, mode="driving")
+        except Exception as e:
+            print("[dbg] Google Directions failed; using fallback:", str(e))
+    # Fallback: compute straight-line distance and estimate duration using heuristic speeds
+    try:
+        distance_m = geodesic_distance(origin, destination)
+        distance_km = distance_m / 1000.0
+        if distance_km < 10:
+            speed_kmh = 15
+        elif distance_km < 50:
+            speed_kmh = 30
+        else:
+            speed_kmh = 40
+        duration_minutes = (distance_km / max(speed_kmh, 1)) * 60.0
+        duration_seconds = int(duration_minutes * 60)
+        return [{
+            'legs': [{
+                'duration': {'value': duration_seconds},
+                'distance': {'value': int(distance_m)}
+            }]
+        }]
+    except Exception as e:
+        print("[dbg] Fallback directions computation failed:", str(e))
+        # Last-resort constant values to avoid crashing
+        return [{
+            'legs': [{
+                'duration': {'value': 0},
+                'distance': {'value': 0}
+            }]
+        }]
 
 
 def handle_noise_with_kmeans(df):
