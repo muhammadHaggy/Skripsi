@@ -142,6 +142,8 @@ services:
       - "3000:3000"
     env_file:
       - ./web-frontend/.env
+    environment:
+      - REACT_APP_BACKEND_URL=https://skripsi-gateway.muhammadhaggy.com
     restart: always
     networks:
       - tms_net
