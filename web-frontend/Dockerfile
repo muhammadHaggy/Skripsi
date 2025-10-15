@@ -1,11 +1,15 @@
-FROM node:21
+FROM node:21-alpine
 
 WORKDIR /app
 
-COPY package.json ./
+ENV NODE_ENV=development
+ENV HOST=0.0.0.0
 
-RUN npm install
+# Install dependencies with better caching
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund
 
+# Copy application sources (excluding items in .dockerignore)
 COPY . .
 
 EXPOSE 3000
