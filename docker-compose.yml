@@ -45,6 +45,18 @@ services:
     networks:
       - tms_net
 
+  # Optimization algorithm (Django)
+  opt-algorithm:
+    build:
+      context: ./opt-algorithm
+      dockerfile: Dockerfile
+    container_name: opt-algorithm
+    env_file:
+      - ./opt-algorithm/restful_routing_project/.env
+    restart: always
+    networks:
+      - tms_net
+
   api_gateway:
     build:
       context: ./api-gateway
@@ -60,6 +72,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/paragon?schema=public
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - DJANGO_URL=http://opt-algorithm:8000
     ports:
       - "8080:8080"
     restart: always
