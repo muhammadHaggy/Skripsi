@@ -94,6 +94,7 @@ def get_trucks_model_sorted(trucks):
         trucks = list(trucks) if trucks else []
     for truck in trucks:
         if not isinstance(truck, dict):
+            print("[dbg] Skipping non-dict truck:", truck)
             continue
         truck_type = truck.get("truck_type") or {}
         type_name = truck_type.get("name") or ""
@@ -105,7 +106,18 @@ def get_trucks_model_sorted(trucks):
             current_volume = float(truck.get("current_volume") or 0)
         except (TypeError, ValueError):
             current_volume = 0.0
-
+        if truck_type is None or not isinstance(truck_type, dict):
+            print("[dbg] Truck has no truck_type dict:", json.dumps({
+                "id": truck.get("id"),
+                "type_id": truck.get("type_id"),
+                "dc_id": truck.get("dc_id"),
+                "truck_type": truck.get("truck_type"),
+            }, default=str))
+        if max_capacity == 0.0:
+            print("[dbg] Truck max capacity parsed as 0.0:", json.dumps({
+                "id": truck.get("id"),
+                "raw_max_capacity": truck.get("max_individual_capacity_volume"),
+            }, default=str))
         truck_model = Truck(
             id=truck.get("id"),
             plate_number=truck.get('plate_number'),
@@ -126,6 +138,34 @@ def testing(request, format=None):
 @api_view(["POST"])
 def priority_optimization(request, format=None):
     data = json.loads(request.body.decode('utf-8'))
+    try:
+        print("[dbg] /api/priority payload summary:", json.dumps({
+            "trucks_len": len(data.get('trucks', [])) if isinstance(data.get('trucks'), list) else 'NA',
+            "dest_location_len": len(data.get('dest_location', [])) if isinstance(data.get('dest_location'), list) else 'NA',
+            "ori_location_len": len(data.get('ori_location', [])) if isinstance(data.get('ori_location'), list) else 'NA',
+            "delivery_orders_len": len(data.get('delivery_orders', [])) if isinstance(data.get('delivery_orders'), list) else 'NA',
+            "priority": data.get('priority'),
+        }, default=str))
+        if isinstance(data.get('trucks'), list) and len(data['trucks']) > 0:
+            t0 = data['trucks'][0]
+            print("[dbg] first truck head:", json.dumps({
+                "id": t0.get('id'),
+                "type_id": t0.get('type_id'),
+                "dc_id": t0.get('dc_id'),
+                "truck_type": t0.get('truck_type'),
+                "max_individual_capacity_volume": t0.get('max_individual_capacity_volume'),
+                "current_volume": t0.get('current_volume'),
+            }, default=str))
+        if isinstance(data.get('delivery_orders'), list) and len(data['delivery_orders']) > 0:
+            d0 = data['delivery_orders'][0]
+            print("[dbg] first DO head:", json.dumps({
+                "id": d0.get('id'),
+                "delivery_order_num": d0.get('delivery_order_num'),
+                "loc_dest": d0.get('loc_dest'),
+                "ProductLine_len": len(d0.get('ProductLine', [])) if isinstance(d0.get('ProductLine'), list) else 'NA',
+            }, default=str))
+    except Exception as e:
+        print("[dbg] error while printing payload summary:", str(e))
     trucks = data['trucks']
     dest_location = data['dest_location']
     origin_location = data['ori_location']
@@ -148,9 +188,25 @@ def priority_optimization(request, format=None):
         delivery_orders[i]["quantity"] = quantities
     print("processing.....")
     trucks_model = get_trucks_model_sorted(trucks)
+    try:
+        print("[dbg] built trucks_model:", len(trucks_model),
+              "first:", {
+                  "id": getattr(trucks_model[0], 'id', None) if len(trucks_model) else None,
+                  "max": str(getattr(trucks_model[0], 'max_individual_capacity_volume', None)) if len(trucks_model) else None,
+              })
+    except Exception as e:
+        print("[dbg] error printing trucks_model:", str(e))
     df_delivery_orders = get_delivery_orders__with_demand_dataframe(delivery_orders)
     df_do_dest_location = get_location_dataframe(dest_location)
     df_do_origin_location = get_location_dataframe(origin_location[0])
+    try:
+        print("[dbg] df shapes:", {
+            "df_delivery_orders": df_delivery_orders.shape,
+            "df_do_dest_location": df_do_dest_location.shape,
+            "df_do_origin_location": df_do_origin_location.shape,
+        })
+    except Exception as e:
+        print("[dbg] error printing df shapes:", str(e))
 
     df = pd.merge(df_delivery_orders, df_do_dest_location, on='loc_dest_id', how='left')  
     df['distance_from_origin'] = df.apply(lambda row: geodesic_distance((row['latitude'], row['longitude']), warehouse), axis=1)
