@@ -28,6 +28,17 @@ def layouting_boxes(request):
     algo_dur = time.time() - algo_start
 
     t_total = time.time() - t0
-    print(f"[Layouting][View] DONE shipment_id={shipment_id} algoMs={algo_dur*1000:.0f} totalMs={t_total*1000:.0f}")
+    # Compute response size for observability
+    try:
+        import json
+        size_bytes = len(json.dumps(result).encode('utf-8'))
+    except Exception:
+        size_bytes = -1
+    print(f"[Layouting][View] DONE shipment_id={shipment_id} algoMs={algo_dur*1000:.0f} totalMs={t_total*1000:.0f} respBytes={size_bytes}")
+    try:
+        import sys
+        sys.stdout.flush()
+    except Exception:
+        pass
 
     return Response(result)

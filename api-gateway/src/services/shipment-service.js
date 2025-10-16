@@ -84,7 +84,8 @@ const getBoxLayoutingCoordinatesService = async (id) => {
             },
         });
         const reqDuration = Date.now() - reqStarted;
-        console.log(`[BoxLayouting][Service] UPSTREAM OK status=%d durationMs=%d`, response.status, reqDuration);
+        const sizeBytes = Buffer.byteLength(JSON.stringify(response.data || {}));
+        console.log(`[BoxLayouting][Service] UPSTREAM OK status=%d durationMs=%d sizeBytes=%d`, response.status, reqDuration, sizeBytes);
         const totalDuration = Date.now() - startedAt;
         console.log(`[BoxLayouting][Service] DONE shipmentId=%s totalDurationMs=%d`, id, totalDuration);
         return [response.data]
