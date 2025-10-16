@@ -36,7 +36,10 @@ async function getUserDetails(user_id, username, token) {
   let token_query = {};
   if (token != null) {
     token_query = {
-      token: token,
+      OR: [
+        { web_token: token },
+        { mobile_token: token },
+      ],
     };
   }
 
@@ -53,6 +56,7 @@ async function getUserDetails(user_id, username, token) {
       email: true,
       phone_num: true,
       web_token: true,
+      mobile_token: true,
       role_id: true,
       is_active: true,
       role: {
@@ -123,7 +127,10 @@ async function countUser(username, email, token, user_id) {
   let token_query = {};
   if (token != null) {
     token_query = {
-      token: token,
+      OR: [
+        { web_token: token },
+        { mobile_token: token },
+      ],
     };
   }
 
