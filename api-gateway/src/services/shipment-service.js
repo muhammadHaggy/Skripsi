@@ -24,10 +24,18 @@ const getAllShipmentService = async (dc_id, skip, limit) => {
 };
 
 const getBoxLayoutingCoordinatesService = async (id) => {
-  // ini requestnya shipment_id aja
-  // terus dapetin detail shipment by id (belum ada keknya servicenya) nanti ada data shipment kayak gini (done)
+  const startedAt = Date.now();
+  console.log(`[BoxLayouting][Service] START shipmentId=%s`, id);
+  // Fetch shipment details
   const shipment = await getDetailShipmentWebService(id);
   const apiUrl = process.env.DJANGO_URL + "/api/layouting";
+  console.log(`[BoxLayouting][Service] Shipment fetched: num=%s DOs=%d routes=%d truck=%s apiUrl=%s`,
+    shipment?.shipment_num,
+    shipment?.delivery_orders?.length ?? -1,
+    shipment?.location_routes?.length ?? -1,
+    shipment?.truck?.truck_type?.name ?? 'N/A',
+    apiUrl
+  );
 
     const shipmentData = {};
     
@@ -64,7 +72,9 @@ const getBoxLayoutingCoordinatesService = async (id) => {
     };
     
     try {
+        const reqStarted = Date.now();
         const response = await axios.post(apiUrl, requestData, {
+            timeout: 30000, // 30s defensive timeout
             headers: {
                 Authorization: process.env.OPTIMIZATION_KEY,
                 'Content-Type': 'application/json',
@@ -72,10 +82,23 @@ const getBoxLayoutingCoordinatesService = async (id) => {
                 'Accept-Encoding': 'gzip, deflate, br',
                 Connection: 'keep-alive',
             },
-        })
+        });
+        const reqDuration = Date.now() - reqStarted;
+        console.log(`[BoxLayouting][Service] UPSTREAM OK status=%d durationMs=%d`, response.status, reqDuration);
+        const totalDuration = Date.now() - startedAt;
+        console.log(`[BoxLayouting][Service] DONE shipmentId=%s totalDurationMs=%d`, id, totalDuration);
         return [response.data]
     } catch (error) {
-        return [error.message]
+        const totalDuration = Date.now() - startedAt;
+        if (error.response) {
+          console.error(`[BoxLayouting][Service] UPSTREAM ERROR status=%d data=%j durationMs=%d`, error.response.status, error.response.data, totalDuration);
+        } else if (error.request) {
+          console.error(`[BoxLayouting][Service] UPSTREAM NO-RESPONSE durationMs=%d err=%s`, totalDuration, error.message || error);
+        } else {
+          console.error(`[BoxLayouting][Service] ERROR durationMs=%d err=%s`, totalDuration, error.message || error);
+        }
+        // Surface error message to caller but keep response shape
+        return [{ error: true, message: error.message || 'Unknown error calling optimization service' }]
     }
 }
 
