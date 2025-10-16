@@ -54,9 +54,11 @@ const getBoxLayoutingCoordinatesService = async (id) => {
         }
     });
       
+    const rawContainerName = shipment.truck?.truck_type?.name || 'Blind Van';
+    const normalizedContainer = String(rawContainerName).toUpperCase().replace(/\s+/g, '_'); // e.g., 'Blind Van' -> 'BLIND_VAN'
     const requestData = {
       shipment_data: shipmentData,
-      container: shipment.truck?.truck_type?.name || 'Blind Van',
+      container: normalizedContainer,
       shipment_id: id,
       shipment_num: shipment.shipment_num,
     };

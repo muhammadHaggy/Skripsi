@@ -21,6 +21,12 @@ export default function ThreeScene({ apiResponse }) {
   const radius = 250;
 
   useEffect(() => {
+    // Validate apiResponse structure before accessing
+    if (!apiResponse || !apiResponse.data || !Array.isArray(apiResponse.data) || apiResponse.data.length === 0) {
+      console.error('Invalid apiResponse in useEffect:', apiResponse);
+      return;
+    }
+
     // Jika user sudah memilih untuk menggunakan selected container, langsung render
     if (useSelectedContainer) {
       renderVisualization();
@@ -49,6 +55,20 @@ export default function ThreeScene({ apiResponse }) {
   }, [apiResponse, useSelectedContainer]);
 
   const renderVisualization = () => {
+    // Validate apiResponse structure early
+    if (!apiResponse || !apiResponse.data || !Array.isArray(apiResponse.data) || apiResponse.data.length === 0) {
+      console.error('Cannot render: Invalid apiResponse structure', apiResponse);
+      if (mountRef.current) {
+        mountRef.current.innerHTML = `
+          <div style="padding: 20px; text-align: center; color: #e74c3c;">
+            <h3>Data Error</h3>
+            <p>Unable to load visualization data. Please try again.</p>
+          </div>
+        `;
+      }
+      return;
+    }
+
     let containerLength, containerWidth, containerHeight;
 
     const selectedContainer = apiResponse.data[0].selected_container;
@@ -123,7 +143,20 @@ export default function ThreeScene({ apiResponse }) {
     scene.add(gridYZ);
 
     function loadData(apiResponse) {
+      // Validate apiResponse structure
+      if (!apiResponse || !apiResponse.data || !Array.isArray(apiResponse.data) || apiResponse.data.length === 0) {
+        console.error('Invalid apiResponse structure:', apiResponse);
+        return;
+      }
+
       const layout = apiResponse.data[0].layout;
+      
+      // Validate layout exists and is an array
+      if (!layout || !Array.isArray(layout)) {
+        console.error('Layout is undefined or not an array:', layout);
+        return;
+      }
+
       boxes.forEach(box => scene.remove(box));
       boxes.length = 0;
     
