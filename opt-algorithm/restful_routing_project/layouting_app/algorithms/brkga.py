@@ -89,7 +89,12 @@ def run_layouting_algorithm(shipment_data, selected_container, shipment_id, ship
         print("[Layouting][Algo] Step2 container=", selected_container, "fitness=", fitness, "util=", f"{utilization*100:.2f}%", "durMs=", int(step2_ms))
         
         if math.floor(fitness) > 1:
-            inputs['V'] = [container_options[selected_container]] * math.ceil(fitness)
+            required_bins = math.ceil(fitness)
+            if required_bins > 10 or required_bins >= 10000:
+                print("[Layouting][Algo] Capping required bins:", required_bins, "-> 10")
+                required_bins = 10
+            inputs['V'] = [container_options[selected_container]] * required_bins
+
             step3_start = time.time()
             model = BRKGA(inputs, 
                     num_generations=20,
