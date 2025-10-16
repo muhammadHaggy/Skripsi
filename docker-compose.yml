@@ -51,6 +51,8 @@ services:
       context: ./opt-algorithm
       dockerfile: Dockerfile
     container_name: opt-algorithm
+    ports:
+      - "8000:8000"
     env_file:
       - ./opt-algorithm/restful_routing_project/.env
     restart: always
