@@ -155,6 +155,9 @@ const refreshTokenService = async (request) => {
   }
 
   const found = await getUserDetails(null, null, oldToken);
+  if (!found) {
+    throw new ResponseError(404, "Old token is invalid");
+  }
   const { password, web_token, mobile_token, ...userCore } = found;
 
   const tokenType = oldToken === web_token ? "web" : oldToken === mobile_token ? "mobile" : "web";
