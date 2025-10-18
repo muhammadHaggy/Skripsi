@@ -1,0 +1,13 @@
+.git
+node_modules
+dist
+build
+.next
+out
+coverage
+*.log
+.DS_Store
+.vscode
+.idea
+Dockerfile
+docker-compose.yml
