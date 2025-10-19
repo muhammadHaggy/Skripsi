@@ -7,7 +7,6 @@ import pika
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.spec import Basic, BasicProperties
 from psycopg import connect
-from psycopg.extras import execute_values
 
 
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
@@ -70,17 +69,17 @@ def flush_batches(cur, buffer: BatchBuffer) -> None:
         )
         cur.executemany(gps_sql, buffer.gps_rows)
 
-    # Metrics upserts (execute_values for batch)
+    # Metrics upserts (executemany for batch)
     if buffer.metrics_rows:
         metrics_sql = (
             """
             INSERT INTO telemetry.readings (device_id, ts, metric, value, tags)
-            VALUES %s
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (device_id, ts, metric)
             DO UPDATE SET value=EXCLUDED.value, tags=EXCLUDED.tags
             """
         )
-        execute_values(cur, metrics_sql, buffer.metrics_rows)
+        cur.executemany(metrics_sql, buffer.metrics_rows)
 
     buffer.mark_flushed()
 
