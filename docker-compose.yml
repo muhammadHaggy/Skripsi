@@ -1,5 +1,3 @@
-version: "3.9"
-
 networks:
   tms_net:
     name: tms_net
@@ -16,6 +14,7 @@ services:
       dockerfile: Dockerfile
     image: custom-timescale-postgis:pg16
     container_name: api_gateway_db
+    command: postgres -c shared_preload_libraries=timescaledb
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
