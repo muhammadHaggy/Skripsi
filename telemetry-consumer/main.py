@@ -6,7 +6,7 @@ import orjson
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.spec import Basic, BasicProperties
-from psycopg import connect
+from psycopg import connect, OperationalError
 
 
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
@@ -52,6 +52,12 @@ def get_db_connection():
     return connect(DATABASE_URL)
 
 
+def reconnect_db():
+    db = get_db_connection()
+    db.autocommit = False
+    return db, db.cursor()
+
+
 def flush_batches(cur, buffer: BatchBuffer) -> None:
     if not buffer.metrics_rows and not buffer.gps_rows:
         buffer.last_flush_time = time.time()
@@ -93,11 +99,9 @@ def main() -> None:
     channel.exchange_declare(exchange=EXCHANGE, exchange_type="topic", durable=True)
     channel.queue_declare(queue=QUEUE_NAME, durable=True)
     channel.queue_bind(queue=QUEUE_NAME, exchange=EXCHANGE, routing_key=BINDING_KEY)
-    channel.basic_qos(prefetch_count=1000)
+    channel.basic_qos(prefetch_count=100)
 
-    db = get_db_connection()
-    db.autocommit = False
-    cur = db.cursor()
+    db, cur = reconnect_db()
 
     buffer = BatchBuffer(batch_size=BATCH_SIZE)
 
@@ -133,13 +137,35 @@ def main() -> None:
             try:
                 flush_batches(cur, buffer)
                 db.commit()
-                # Ack all collected delivery tags on success
                 for tag in list(buffer.delivery_tags):
                     ch.basic_ack(delivery_tag=tag)
                 buffer.mark_flushed()
+            except OperationalError:
+                # Database connection lost: rollback (best-effort), requeue, and reconnect
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                for tag in list(buffer.delivery_tags):
+                    ch.basic_nack(delivery_tag=tag, requeue=True)
+                buffer.mark_flushed()
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+                try:
+                    db.close()
+                except Exception:
+                    pass
+                db_local, cur_local = reconnect_db()
+                db = db_local
+                cur = cur_local
             except Exception:
-                db.rollback()
-                # Requeue all pending messages
+                # Other errors: rollback and requeue
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
                 for tag in list(buffer.delivery_tags):
                     ch.basic_nack(delivery_tag=tag, requeue=True)
                 buffer.mark_flushed()
@@ -150,16 +176,24 @@ def main() -> None:
         channel.start_consuming()
     finally:
         try:
-            # Final flush on shutdown
             if buffer.metrics_rows or buffer.gps_rows:
                 try:
                     flush_batches(cur, buffer)
                     db.commit()
                 except Exception:
-                    db.rollback()
+                    try:
+                        db.rollback()
+                    except Exception:
+                        pass
         finally:
-            cur.close()
-            db.close()
+            try:
+                cur.close()
+            except Exception:
+                pass
+            try:
+                db.close()
+            except Exception:
+                pass
             try:
                 channel.stop_consuming()
             except Exception:
