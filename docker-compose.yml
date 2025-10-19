@@ -11,7 +11,10 @@ volumes:
 services:
   # API Gateway stack
   db:
-    image: postgres:16
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    image: custom-timescale-postgis:pg16
     container_name: api_gateway_db
     environment:
       - POSTGRES_USER=postgres
@@ -21,6 +24,7 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -36,6 +40,8 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+      - "1883:1883"
+    command: bash -c "rabbitmq-plugins enable --offline rabbitmq_mqtt && docker-entrypoint.sh rabbitmq-server"
     healthcheck:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
       interval: 5s
@@ -142,6 +148,28 @@ services:
       - api_gateway
       - storage_service
       - rabbitmq
+    restart: always
+    networks:
+      - tms_net
+
+  telemetry_consumer:
+    build:
+      context: ./telemetry-consumer
+      dockerfile: Dockerfile
+    container_name: telemetry_consumer
+    env_file:
+      - ./telemetry-consumer/.env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - EXCHANGE=amq.topic
+      - QUEUE_NAME=telemetry.insert
+      - BINDING_KEY=sensors.#
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/paragon
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      db:
+        condition: service_healthy
     restart: always
     networks:
       - tms_net
