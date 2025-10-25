@@ -140,7 +140,9 @@ services:
       - tms_net
 
   nginx:
-    image: nginx:1.27-alpine
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     container_name: edge_nginx
     depends_on:
       - api_gateway
@@ -148,9 +150,7 @@ services:
       - web_frontend
     ports:
       - "1180:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    volumes: []
     restart: always
     networks:
       - tms_net
