@@ -53,8 +53,8 @@ services:
     container_name: opt-algorithm
     ports:
       - "8000:8000"
-    env_file:
-      - ./opt-algorithm/restful_routing_project/.env
+    environment:
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
     restart: always
     networks:
       - tms_net
@@ -69,12 +69,17 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    env_file:
-      - ./api-gateway/.env
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/paragon?schema=public
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - DJANGO_URL=http://opt-algorithm:8000
+      - SECRET_KEY=${SECRET_KEY}
+      - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
+      - RABBITMQ_ROUTING_KEY=${RABBITMQ_ROUTING_KEY}
+      - RABBITMQ_AUDIT_KEY=${RABBITMQ_AUDIT_KEY}
+      - RABBITMQ_API_KEY=${RABBITMQ_API_KEY}
+      - RUN_INITIAL_DATA=${RUN_INITIAL_DATA}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
     restart: always
     command: sh -c "npx prisma migrate deploy && node index.js"
     networks:
@@ -90,8 +95,8 @@ services:
     container_name: storage_service
     volumes:
       - storage_uploads:/app/uploads
-    env_file:
-      - ./storage/.env
+    environment:
+      - STORAGE_API_KEY=${STORAGE_API_KEY}
     restart: always
     networks:
       - tms_net
@@ -103,15 +108,16 @@ services:
     image: python:3.10-slim
     container_name: tmslastmile_worker
     working_dir: /app
-    env_file:
-      - ./tmslastmile-worker/.env
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - EXCHANGE=box_exchange
       - ROUTING_KEY=box.job
       - AUDIT_KEY=box.audit
+      - QUEUE=${QUEUE}
       - BACKEND_API=http://api_gateway:8080/api/v1/box/dimension-result
       - ML_ROOT=/ml
+      - RABBITMQ_API_KEY=${RABBITMQ_API_KEY}
+      - STORAGE_API_KEY=${STORAGE_API_KEY}
     volumes:
       - ./tmslastmile-worker:/app
       - ./machine-learning:/ml:rw
@@ -133,10 +139,9 @@ services:
       context: ./web-frontend
       dockerfile: Dockerfile
     container_name: web-frontend
-    env_file:
-      - ./web-frontend/.env
     environment:
       - REACT_APP_BACKEND_URL=https://skripsi-gateway.muhammadhaggy.com
+      - REACT_APP_GOOGLE_MAPS_KEY=${REACT_APP_GOOGLE_MAPS_KEY}
     restart: always
     networks:
       - tms_net

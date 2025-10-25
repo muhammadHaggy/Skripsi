@@ -1,3 +1,4 @@
+import os
 import googlemaps
 import gmaps
 from scipy.spatial.distance import cdist
@@ -12,17 +13,13 @@ from skopt.utils import use_named_args
 from datetime import datetime
 
 config = Config(RepositoryEnv('.env'))
-# Support both API_KEY and GOOGLE_MAPS_API_KEY from .env
-API_KEY = None
-try:
-    API_KEY = config('API_KEY', default=None)
-except Exception:
-    API_KEY = None
-if not API_KEY:
-    try:
-        API_KEY = config('GOOGLE_MAPS_API_KEY', default=None)
-    except Exception:
-        API_KEY = None
+# Support both environment variables and app .env for API keys
+API_KEY = (
+    os.getenv('API_KEY')
+    or os.getenv('GOOGLE_MAPS_API_KEY')
+    or config('API_KEY', default=None)
+    or config('GOOGLE_MAPS_API_KEY', default=None)
+)
 
 def calculate_gamma1(visited_nodes, all_nodes, df):
     total_demand_visited = sum(df.at[node, 'demand'] for node in visited_nodes)
