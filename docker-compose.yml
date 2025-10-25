@@ -17,8 +17,6 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=paragon
-    ports:
-      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -33,9 +31,6 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: api_gateway_rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
     healthcheck:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
       interval: 5s
@@ -51,8 +46,6 @@ services:
       context: ./opt-algorithm
       dockerfile: Dockerfile
     container_name: opt-algorithm
-    ports:
-      - "8000:8000"
     environment:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
     restart: always
@@ -154,7 +147,7 @@ services:
       - storage_service
       - web_frontend
     ports:
-      - "80:80"
+      - "1180:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
