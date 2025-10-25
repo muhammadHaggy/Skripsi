@@ -75,22 +75,12 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/paragon?schema=public
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - DJANGO_URL=http://opt-algorithm:8000
-    ports:
-      - "8080:8080"
     restart: always
     command: sh -c "npx prisma migrate deploy && node index.js"
     networks:
       - tms_net
 
-  api_gateway_tunnel:
-    image: cloudflare/cloudflared:latest
-    container_name: api_gateway_tunnel
-    depends_on:
-      - api_gateway
-    command: tunnel run --token ${API_GATEWAY_TUNNEL_TOKEN}
-    restart: always
-    networks:
-      - tms_net
+  
 
   # Storage service
   storage_service:
@@ -98,8 +88,6 @@ services:
       context: ./storage
       dockerfile: Dockerfile
     container_name: storage_service
-    ports:
-      - "8081:8081"
     volumes:
       - storage_uploads:/app/uploads
     env_file:
@@ -108,15 +96,7 @@ services:
     networks:
       - tms_net
 
-  storage_tunnel:
-    image: cloudflare/cloudflared:latest
-    container_name: storage_tunnel
-    command: tunnel --no-autoupdate run --token ${STORAGE_TUNNEL_TOKEN}
-    depends_on:
-      - storage_service
-    restart: always
-    networks:
-      - tms_net
+  
 
   # Worker
   tmslastmile_worker:
@@ -153,8 +133,6 @@ services:
       context: ./web-frontend
       dockerfile: Dockerfile
     container_name: web-frontend
-    ports:
-      - "3000:3000"
     env_file:
       - ./web-frontend/.env
     environment:
@@ -163,12 +141,18 @@ services:
     networks:
       - tms_net
 
-  web_frontend_tunnel:
-    image: cloudflare/cloudflared:latest
-    container_name: web_frontend_tunnel
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: edge_nginx
     depends_on:
+      - api_gateway
+      - storage_service
       - web_frontend
-    command: tunnel --no-autoupdate run --token ${WEB_FRONTEND_TUNNEL_TOKEN}
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
     restart: always
     networks:
       - tms_net
