@@ -9,7 +9,7 @@ export const app = express();
 
 app.use(
   cors({
-    origin: true, 
+    origin: true,
     credentials: true,
   })
 );

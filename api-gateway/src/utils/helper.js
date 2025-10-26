@@ -1,6 +1,6 @@
 import googleDistance from "google-distance-matrix";
 
-const GOOGLE_API_KEY = process.env.API_KEY;
+const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
 export async function IdGenerator(type, data) {
   if (type === "location") {
@@ -25,7 +25,7 @@ export const distanceOriToDest = async (
   dest_long
 ) => {
   if (origin_lat !== undefined && origin_long !== undefined) {
-    googleDistance.key(process.env.API_KEY);
+    googleDistance.key(process.env.GOOGLE_MAPS_API_KEY);
     googleDistance.mode("driving");
     return await new Promise((resolve, reject) => {
       googleDistance.matrix(
