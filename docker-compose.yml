@@ -45,9 +45,7 @@ services:
     build:
       context: ./opt-algorithm
       dockerfile: Dockerfile
-      pull: true
     image: custom-opt-algorithm:local
-    pull_policy: never
     container_name: opt-algorithm
     environment:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
@@ -59,11 +57,9 @@ services:
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
-      pull: true
     image: custom-api-gateway:local
     ports:
       - "28080:8080"
-    pull_policy: never
     container_name: api_gateway
     depends_on:
       db:
@@ -93,11 +89,9 @@ services:
     build:
       context: ./storage
       dockerfile: Dockerfile
-      pull: true
     ports:
       - "18081:8081"
     image: custom-storage:local
-    pull_policy: never
     container_name: storage_service
     volumes:
       - storage_uploads:/app/uploads
@@ -144,9 +138,7 @@ services:
     build:
       context: ./web-frontend
       dockerfile: Dockerfile
-      pull: true
     image: custom-web-frontend:local
-    pull_policy: never
     container_name: web-frontend
     ports:
       - "13000:3000"
