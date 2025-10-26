@@ -105,9 +105,11 @@ services:
 
   # Worker
   tmslastmile_worker:
-    image: python:3.10-slim
+    build:
+      context: ./tmslastmile-worker
+      dockerfile: Dockerfile
+    image: custom-tms-worker:local
     container_name: tmslastmile_worker
-    working_dir: /app
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - EXCHANGE=box_exchange
@@ -115,23 +117,49 @@ services:
       - AUDIT_KEY=box.audit
       - QUEUE=${QUEUE}
       - BACKEND_API=http://api_gateway:8080/api/v1/box/dimension-result
-      - ML_ROOT=/ml
       - RABBITMQ_API_KEY=${RABBITMQ_API_KEY}
-      - STORAGE_API_KEY=${STORAGE_API_KEY}
-    volumes:
-      - ./tmslastmile-worker:/app
-      - ./machine-learning:/ml:rw
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    command: sh -c "pip install --no-cache-dir -r requirements.txt && python main.py"
+      - ML_SERVICE_URL=http://ml_service:5001/infer
     depends_on:
-      - api_gateway
-      - storage_service
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+      api_gateway:
+        condition: service_started
+      storage_service:
+        condition: service_started
+      ml_service:
+        condition: service_healthy
     restart: always
     networks:
       - tms_net
 
+
+  ml_service:
+    build:
+      context: ./machine-learning
+      dockerfile: Dockerfile.gpu
+    image: custom-ml-service:local
+    container_name: ml_service
+    ports:
+      - "15001:5001"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - STORAGE_API_KEY=${STORAGE_API_KEY}
+      - PYTHON_PATH=python
+    devices:
+      - "/dev/nvidia0:/dev/nvidia0"
+      - "/dev/nvidiactl:/dev/nvidiactl"
+      - "/dev/nvidia-uvm:/dev/nvidia-uvm"
+      - "/dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools"
+      - "/dev/nvidia-modeset:/dev/nvidia-modeset"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: always
+    networks:
+      - tms_net
 
   # Web Frontend
   web_frontend:
