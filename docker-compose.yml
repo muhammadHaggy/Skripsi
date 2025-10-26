@@ -61,6 +61,8 @@ services:
       dockerfile: Dockerfile
       pull: true
     image: custom-api-gateway:local
+    ports:
+      - "28080:8080"
     pull_policy: never
     container_name: api_gateway
     depends_on:
@@ -92,6 +94,8 @@ services:
       context: ./storage
       dockerfile: Dockerfile
       pull: true
+    ports:
+      - "18081:8081"
     image: custom-storage:local
     pull_policy: never
     container_name: storage_service
@@ -144,29 +148,12 @@ services:
     image: custom-web-frontend:local
     pull_policy: never
     container_name: web-frontend
+    ports:
+      - "13000:3000"
     environment:
-      - REACT_APP_BACKEND_URL=https://skripsi-gateway.muhammadhaggy.com
       - REACT_APP_GOOGLE_MAPS_KEY=${REACT_APP_GOOGLE_MAPS_KEY}
     restart: always
     networks:
       - tms_net
 
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-      pull: true
-    image: custom-nginx:local
-    pull_policy: never
-    container_name: edge_nginx
-    depends_on:
-      - api_gateway
-      - storage_service
-      - web_frontend
-    ports:
-      - "1180:80"
-    volumes: []
-    restart: always
-    networks:
-      - tms_net
 

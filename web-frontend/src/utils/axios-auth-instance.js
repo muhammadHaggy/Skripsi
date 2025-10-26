@@ -1,7 +1,9 @@
 import axios from 'axios'
 
+const apiBaseUrl = `${window.location.protocol}//${window.location.hostname}:28080/api/v1`
+
 const axiosAuthInstance = axios.create({
-  baseURL: `${window.location.origin}/api/v1`,
+  baseURL: apiBaseUrl,
   withCredentials: true
 })
 
