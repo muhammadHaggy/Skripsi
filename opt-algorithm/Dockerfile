@@ -7,10 +7,7 @@ ENV PYTHONUNBUFFERED 1
 
 WORKDIR /app
 
-RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
-    apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+
 
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
