@@ -45,6 +45,9 @@ services:
     build:
       context: ./opt-algorithm
       dockerfile: Dockerfile
+      pull: true
+    image: custom-opt-algorithm:local
+    pull_policy: never
     container_name: opt-algorithm
     environment:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
@@ -56,6 +59,9 @@ services:
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
+      pull: true
+    image: custom-api-gateway:local
+    pull_policy: never
     container_name: api_gateway
     depends_on:
       db:
@@ -85,6 +91,9 @@ services:
     build:
       context: ./storage
       dockerfile: Dockerfile
+      pull: true
+    image: custom-storage:local
+    pull_policy: never
     container_name: storage_service
     volumes:
       - storage_uploads:/app/uploads
@@ -131,6 +140,9 @@ services:
     build:
       context: ./web-frontend
       dockerfile: Dockerfile
+      pull: true
+    image: custom-web-frontend:local
+    pull_policy: never
     container_name: web-frontend
     environment:
       - REACT_APP_BACKEND_URL=https://skripsi-gateway.muhammadhaggy.com
@@ -143,6 +155,9 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
+      pull: true
+    image: custom-nginx:local
+    pull_policy: never
     container_name: edge_nginx
     depends_on:
       - api_gateway
