@@ -1,10 +1,10 @@
 from datetime import datetime, time, timedelta
+import os
 import googlemaps
 import polyline
-from decouple import Config, RepositoryEnv
 
-config = Config(RepositoryEnv('.env'))
-API_KEY = config('API_KEY')
+# Use environment variables provided by the runtime (e.g., Docker Compose)
+API_KEY = os.getenv('API_KEY') or os.getenv('GOOGLE_MAPS_API_KEY')
 
 def nearest_neighbor_runner(bin_cluster_data, distances, times, distance_from_DC, duration_from_DC, ori_lat, ori_long):
      

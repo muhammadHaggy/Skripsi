@@ -1,18 +1,15 @@
 from datetime import datetime, time, timedelta
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from sklearn.preprocessing import MinMaxScaler
 from .nearest_neighbor import fetch_concatenate_route
-from .helper import get_distance_runner, get_directions, dbscan_cluster, handle_noise_with_kmeans, geodesic_distance
 from .google_or import google_or
 import json
 from .models import Truck
-import pandas as pd
 import collections
 collections.Iterable = collections.abc.Iterable
-import numpy as np
 
 def get_delivery_orders_dataframe(delivery_orders):
+    import pandas as pd
     df_delivery_orders = {
         'id': [],
         'delivery_order_num' : [],
@@ -30,6 +27,7 @@ def get_delivery_orders_dataframe(delivery_orders):
     return pd.DataFrame(df_delivery_orders)
 
 def get_delivery_orders__with_demand_dataframe(delivery_orders):
+    import pandas as pd
     df_delivery_orders = {
         'id': [],
         'delivery_order_num' : [],
@@ -49,6 +47,7 @@ def get_delivery_orders__with_demand_dataframe(delivery_orders):
     return pd.DataFrame(df_delivery_orders)
 
 def get_location_dataframe(locations):
+    import pandas as pd
     if isinstance(locations, dict):
         locations = [locations]
     elif not isinstance(locations, list):
@@ -137,6 +136,10 @@ def testing(request, format=None):
 
 @api_view(["POST"])
 def priority_optimization(request, format=None):
+    # Lazy-load heavy scientific libraries to avoid import-time failures during Django startup
+    import pandas as pd
+    from sklearn.preprocessing import MinMaxScaler
+    from .helper import get_distance_runner, get_directions, geodesic_distance
     data = json.loads(request.body.decode('utf-8'))
     try:
         print("[dbg] /api/priority payload summary:", json.dumps({

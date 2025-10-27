@@ -1,6 +1,5 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .algorithms.brkga import run_layouting_algorithm
 import time
 
 @api_view(['POST'])
@@ -23,6 +22,8 @@ def layouting_boxes(request):
     except Exception as e:
         print(f"[Layouting][View] INPUT summary error: {e}")
 
+    # Lazy import to avoid initializing NumPy/OpenBLAS at Django startup
+    from .algorithms.brkga import run_layouting_algorithm
     algo_start = time.time()
     result = run_layouting_algorithm(shipment_data, selected_container, shipment_id, shipment_num)
     algo_dur = time.time() - algo_start
