@@ -36,6 +36,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    ports:
+      - "5672:5672"
+      - "15672:15672"
     restart: always
     networks:
       - tms_net
@@ -103,37 +106,6 @@ services:
       - storage_uploads:/app/uploads
     environment:
       - STORAGE_API_KEY=${STORAGE_API_KEY}
-    restart: always
-    networks:
-      - tms_net
-
-  
-
-  # Worker
-  tmslastmile_worker:
-    image: python:3.10-slim
-    container_name: tmslastmile_worker
-    working_dir: /app
-    environment:
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-      - EXCHANGE=box_exchange
-      - ROUTING_KEY=box.job
-      - AUDIT_KEY=box.audit
-      - QUEUE=${QUEUE}
-      - BACKEND_API=http://api_gateway:8080/api/v1/box/dimension-result
-      - ML_ROOT=/ml
-      - RABBITMQ_API_KEY=${RABBITMQ_API_KEY}
-      - STORAGE_API_KEY=${STORAGE_API_KEY}
-    volumes:
-      - ./tmslastmile-worker:/app
-      - ./machine-learning:/ml:rw
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    command: sh -c "pip install --no-cache-dir -r requirements.txt && python main.py"
-    depends_on:
-      - api_gateway
-      - storage_service
-      - rabbitmq
     restart: always
     networks:
       - tms_net
