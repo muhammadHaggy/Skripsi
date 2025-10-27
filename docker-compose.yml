@@ -31,6 +31,9 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: api_gateway_rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
     healthcheck:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
       interval: 5s
@@ -75,7 +78,7 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/paragon?schema=public
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
       - DJANGO_URL=http://opt-algorithm:8000
       - SECRET_KEY=${SECRET_KEY}
       - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
