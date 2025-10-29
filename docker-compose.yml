@@ -11,6 +11,9 @@ volumes:
 services:
   # API Gateway stack
   db:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
     image: postgres:16
     container_name: api_gateway_db
     environment:
@@ -27,8 +30,14 @@ services:
     restart: always
     networks:
       - tms_net
+    security_opt:
+      - seccomp=unconfined
+
 
   rabbitmq:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
     image: rabbitmq:3.13-management
     container_name: api_gateway_rabbitmq
     healthcheck:
@@ -39,9 +48,15 @@ services:
     restart: always
     networks:
       - tms_net
+    security_opt:
+      - seccomp=unconfined
+
 
   # Optimization algorithm (Django)
   opt-algorithm:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
     build:
       context: ./opt-algorithm
       dockerfile: Dockerfile
@@ -54,6 +69,9 @@ services:
       - tms_net
 
   api_gateway:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
@@ -86,6 +104,9 @@ services:
 
   # Storage service
   storage_service:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
     build:
       context: ./storage
       dockerfile: Dockerfile
@@ -105,6 +126,9 @@ services:
 
   # Worker
   tmslastmile_worker:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
     image: python:3.10-slim
     container_name: tmslastmile_worker
     working_dir: /app
@@ -131,10 +155,16 @@ services:
     restart: always
     networks:
       - tms_net
+    security_opt:
+      - seccomp=unconfined
+
 
 
   # Web Frontend
   web_frontend:
+    ulimits:
+      stack: 8388608   
+      nproc: 40960
     build:
       context: ./web-frontend
       dockerfile: Dockerfile
