@@ -18,4 +18,5 @@ services:
       timeout: 5s
       retries: 10
     restart: always
-
+    security_opt:
+      - seccomp=unconfined

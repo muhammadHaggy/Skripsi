@@ -3,7 +3,6 @@ import googlemaps
 import gmaps
 from scipy.spatial.distance import cdist
 import numpy as np
-from decouple import Config, RepositoryEnv
 from geopy.distance import geodesic
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.metrics import silhouette_score as ss
@@ -12,14 +11,8 @@ from skopt.space import Real, Integer
 from skopt.utils import use_named_args
 from datetime import datetime
 
-config = Config(RepositoryEnv('.env'))
-# Support both environment variables and app .env for API keys
-API_KEY = (
-    os.getenv('API_KEY')
-    or os.getenv('GOOGLE_MAPS_API_KEY')
-    or config('API_KEY', default=None)
-    or config('GOOGLE_MAPS_API_KEY', default=None)
-)
+# Support reading API key only from environment
+API_KEY = os.getenv('GOOGLE_MAPS_API_KEY') or os.getenv('API_KEY')
 
 def calculate_gamma1(visited_nodes, all_nodes, df):
     total_demand_visited = sum(df.at[node, 'demand'] for node in visited_nodes)
