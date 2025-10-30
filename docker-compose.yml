@@ -143,13 +143,12 @@ services:
       - AUDIT_KEY=box.audit
       - QUEUE=${QUEUE}
       - BACKEND_API=http://api_gateway:8080/api/v1/box/dimension-result
-      - ML_API_URL=http://ml_service:5001/infer
+      - ML_API_URL=${ML_API_URL}
       - RABBITMQ_API_KEY=${RABBITMQ_API_KEY}
       - STORAGE_API_KEY=${STORAGE_API_KEY}
     depends_on:
       - api_gateway
       - rabbitmq
-      - ml_service
     restart: always
     networks:
       - tms_net
@@ -182,6 +181,8 @@ services:
       dockerfile: Dockerfile.gpu
     image: custom-ml-service:local
     container_name: ml_service
+    profiles:
+      - "ml"
     ports:
       - "15001:5001"
     environment:
