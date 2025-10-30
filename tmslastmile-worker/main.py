@@ -29,9 +29,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def connect_to_rabbitmq():
-    connection = await connect_robust(RABBITMQ_URL)
-    channel = await connection.channel()
-    return connection, channel
+    backoff_seconds = 1
+    max_backoff_seconds = 30
+    while True:
+        try:
+            logger.info(f"Connecting to RabbitMQ at {RABBITMQ_URL}")
+            connection = await connect_robust(RABBITMQ_URL)
+            channel = await connection.channel()
+            logger.info("Connected to RabbitMQ and opened channel")
+            return connection, channel
+        except Exception as e:
+            logger.error(f"RabbitMQ connection failed: {e}. Retrying in {backoff_seconds}s")
+            await asyncio.sleep(backoff_seconds)
+            backoff_seconds = min(max_backoff_seconds, backoff_seconds * 2)
 
 def send_to_backend(box_id, length, width, height, volume):
     result = {

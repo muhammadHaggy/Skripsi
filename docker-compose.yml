@@ -38,6 +38,9 @@ services:
       nproc: 40960
     image: rabbitmq:3.13-management
     container_name: api_gateway_rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
     healthcheck:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
       interval: 5s
@@ -88,7 +91,7 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/paragon?schema=public
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
       - DJANGO_URL=http://opt-algorithm:8000
       - SECRET_KEY=${SECRET_KEY}
       - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
@@ -139,7 +142,7 @@ services:
     image: custom-tmslastmile-worker:local
     container_name: tmslastmile_worker
     environment:
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
       - EXCHANGE=box_exchange
       - ROUTING_KEY=box.job
       - AUDIT_KEY=box.audit
@@ -149,8 +152,10 @@ services:
       - RABBITMQ_API_KEY=${RABBITMQ_API_KEY}
       - STORAGE_API_KEY=${STORAGE_API_KEY}
     depends_on:
-      - api_gateway
-      - rabbitmq
+      api_gateway:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
     restart: always
     networks:
       - tms_net
