@@ -37,7 +37,7 @@ Pillow==10.1.0
 polyline==2.0.1
 prompt-toolkit==3.0.39
 protobuf==4.25.3
-psycopg2==2.9.8
+psycopg2-binary==2.9.8
 ptyprocess==0.7.0
 pure-eval==0.2.2
 Pygments==2.16.1

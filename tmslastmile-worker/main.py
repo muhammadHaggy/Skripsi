@@ -10,7 +10,6 @@ import subprocess
 from dotenv import load_dotenv
 from aio_pika import connect_robust, Message, ExchangeType
 from aio_pika.abc import AbstractIncomingMessage
-from utils.file_utils import download_file
 from pathlib import Path
 
 load_dotenv()
@@ -24,6 +23,7 @@ RABBITMQ_API_KEY = os.getenv("RABBITMQ_API_KEY")
 QUEUE = os.getenv("QUEUE")
 ML_ROOT = os.getenv("ML_ROOT")
 PYTHON_PATH_ENV = os.getenv("PYTHON_PATH")
+ML_API_URL = os.getenv("ML_API_URL", "http://ml_service:5001/infer")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,6 +58,31 @@ def send_to_backend(box_id, length, width, height, volume):
 
     except Exception as e:
         logger.error(f"Error sending POST to backend: {e}")
+
+def call_ml_service(box_id, dgx_id, pc_url):
+    try:
+        payload = {
+            "box_id": str(box_id),
+            "dgx_id": str(dgx_id),
+            "pcUrl": pc_url,
+        }
+        logger.info(f"Calling ML service at {ML_API_URL} for box_id={box_id}, dgx_id={dgx_id}")
+        response = requests.post(ML_API_URL, json=payload, timeout=600)
+        if response.status_code != 200:
+            logger.error(f"ML service returned {response.status_code}: {response.text}")
+            return None
+        data = response.json()
+        if isinstance(data, dict) and data.get("status") == "error":
+            logger.error(f"ML service error: {data.get('message')}")
+            return None
+        length = float(data["length"])  # cm
+        width = float(data["width"])    # cm
+        height = float(data["height"])  # cm
+        volume = float(data["volume"])  # cm^3
+        return (length, width, height, volume)
+    except Exception as e:
+        logger.error(f"Exception calling ML service: {e}")
+        return None
 
 async def run_ml_scripts(box_id, dgx_id, file_path):
     if ML_ROOT:
@@ -129,15 +154,10 @@ async def on_message_callback(message: AbstractIncomingMessage, channel):
         dgx_id = payload['dgx_id']
         pc_url = payload['pcUrl']
 
-        file_path = download_file(pc_url, box_id, dgx_id)
-        if not file_path:
-            logger.error(f"Failed to download file for box ID {box_id}. Skipping this message.")
-            await message.ack()
-            return
-        
         logger.info(f"Processing box ID: {box_id}, pcUrl: {pc_url}, dgx_id: {dgx_id}")
-        
-        ml_result = await run_ml_scripts(box_id, dgx_id, file_path)
+
+        # Call external ML service instead of running local scripts
+        ml_result = call_ml_service(box_id, dgx_id, pc_url)
 
         audit_payload = {
             "box_id": box_id,

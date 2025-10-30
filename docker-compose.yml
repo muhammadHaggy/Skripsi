@@ -67,6 +67,8 @@ services:
     restart: always
     networks:
       - tms_net
+    security_opt:
+      - seccomp=unconfined
 
   api_gateway:
     ulimits:
@@ -129,9 +131,11 @@ services:
     ulimits:
       stack: 8388608    
       nproc: 40960
-    image: python:3.10-slim
+    build:
+      context: ./tmslastmile-worker
+      dockerfile: Dockerfile
+    image: custom-tmslastmile-worker:local
     container_name: tmslastmile_worker
-    working_dir: /app
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - EXCHANGE=box_exchange
@@ -139,19 +143,13 @@ services:
       - AUDIT_KEY=box.audit
       - QUEUE=${QUEUE}
       - BACKEND_API=http://api_gateway:8080/api/v1/box/dimension-result
-      - ML_ROOT=/ml
+      - ML_API_URL=http://ml_service:5001/infer
       - RABBITMQ_API_KEY=${RABBITMQ_API_KEY}
       - STORAGE_API_KEY=${STORAGE_API_KEY}
-    volumes:
-      - ./tmslastmile-worker:/app
-      - ./machine-learning:/ml:rw
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    command: sh -c "pip install --no-cache-dir -r requirements.txt && python main.py"
     depends_on:
       - api_gateway
-      - storage_service
       - rabbitmq
+      - ml_service
     restart: always
     networks:
       - tms_net
@@ -177,5 +175,28 @@ services:
     restart: always
     networks:
       - tms_net
+
+  ml_service:
+    build:
+      context: ./machine-learning
+      dockerfile: Dockerfile.gpu
+    image: custom-ml-service:local
+    container_name: ml_service
+    ports:
+      - "15001:5001"
+    environment:
+      # Retain application-specific environment variables
+      STORAGE_API_KEY: ${STORAGE_API_KEY}
+      PYTHON_PATH: python
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: always
+    networks:
+      - tms_net
+    security_opt:
+      - seccomp=unconfined
 
 
