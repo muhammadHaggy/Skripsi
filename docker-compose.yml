@@ -1,6 +1,8 @@
 networks:
   tms_net:
     name: tms_net
+  nginx-manager_customnetwork:
+    external: true
 
 volumes:
   db_data:
@@ -103,7 +105,9 @@ services:
     restart: always
     command: sh -c "npx prisma migrate deploy && node index.js"
     networks:
-      - tms_net
+      tms_net: {}
+      nginx-manager_customnetwork:
+        ipv4_address: 172.20.0.161
 
   
 
@@ -126,7 +130,9 @@ services:
       - STORAGE_API_KEY=${STORAGE_API_KEY}
     restart: always
     networks:
-      - tms_net
+      tms_net: {}
+      nginx-manager_customnetwork:
+        ipv4_address: 172.20.0.162
 
   
 
@@ -181,7 +187,9 @@ services:
       - REACT_APP_GOOGLE_MAPS_KEY=${REACT_APP_GOOGLE_MAPS_KEY}
     restart: always
     networks:
-      - tms_net
+      tms_net: {}
+      nginx-manager_customnetwork:
+        ipv4_address: 172.20.0.163
 
   ml_service:
     build:
