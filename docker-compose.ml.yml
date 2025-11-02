@@ -2,6 +2,9 @@ version: "2.2"
 
 services:
   ml_service:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
     build:
       context: ./machine-learning
       dockerfile: Dockerfile.gpu
