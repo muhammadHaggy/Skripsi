@@ -2,7 +2,7 @@
 set -e
 
 # Optional runtime install of pointops to leverage host GPU and avoid build env limits
-if [ "${INSTALL_POINTOps_AT_RUNTIME:-1}" = "1" ]; then
+if [ "${INSTALL_POINTOPS_AT_RUNTIME:-1}" = "1" ]; then
   export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
   export TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST:-"7.5;8.0;8.6;8.9"}
   export FORCE_CUDA=1
