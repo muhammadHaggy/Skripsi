@@ -67,6 +67,10 @@ RUN set -eux; \
       mmcv \
       -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.2/index.html; \
     \
+    # 4b. Install packages excluded from core list but required at runtime
+    pip install --no-cache-dir \
+      "SharedArray==3.2.4"; \
+    \
     # 5. Install all remaining core dependencies
     pip install --prefer-binary -r requirements.core.txt; \
     \
