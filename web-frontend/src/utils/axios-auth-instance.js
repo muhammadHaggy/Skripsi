@@ -1,6 +1,9 @@
 import axios from 'axios'
 
-const apiBaseUrl = `${window.location.protocol}//${window.location.hostname}:28080/api/v1`
+const envBackendUrl = process.env.REACT_APP_BACKEND_URL
+const apiBaseUrl = envBackendUrl
+  ? `${envBackendUrl.replace(/\/$/, '')}/api/v1`
+  : `${window.location.protocol}//${window.location.host}/api/v1`
 
 const axiosAuthInstance = axios.create({
   baseURL: apiBaseUrl,
