@@ -178,6 +178,8 @@ services:
     build:
       context: ./web-frontend
       dockerfile: Dockerfile
+      args:
+        REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL}
     pull_policy: build
     image: custom-web-frontend:local
     container_name: web-frontend
@@ -185,6 +187,7 @@ services:
       - "13000:3000"
     environment:
       - REACT_APP_GOOGLE_MAPS_KEY=${REACT_APP_GOOGLE_MAPS_KEY}
+      - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
     restart: always
     networks:
       tms_net: {}
