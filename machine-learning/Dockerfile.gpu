@@ -125,6 +125,9 @@ RUN chmod +x /app/entrypoint.sh
 ENV INSTALL_POINTOPS_AT_RUNTIME=0 \
     PYTHONUNBUFFERED=1
 
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && \
+    rm -rf /var/lib/apt/lists/*
+
 EXPOSE 5001
 
 ENTRYPOINT ["/app/entrypoint.sh"]
