@@ -62,7 +62,10 @@ RUN set -eux; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
 
-ENV PIP_NO_CACHE_DIR=1 \
+ENV CUDA_HOME=/usr/local/cuda \
+    PATH=/usr/local/cuda/bin:${PATH} \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH} \
+    PIP_NO_CACHE_DIR=1 \
     PIP_PROGRESS_BAR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     OPENBLAS_NUM_THREADS=1 \
@@ -79,9 +82,12 @@ WORKDIR /app
 COPY --from=wheels /wheelhouse /wheels
 
 RUN set -eux; \
+    python -m pip install --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cu121 \
+      "torch==2.2.0" "torchvision==0.17.0" "torchaudio==2.2.0"; \
     python -m pip install --no-cache-dir --no-deps /wheels/*.whl; \
     python -m pip install --no-cache-dir "ninja==1.11.1.4"; \
-    python -c "import importlib; mods=['pointops._C','pointops2_cuda','pointgroup_ops_cuda']; [importlib.import_module(m) for m in mods]; [print(f'{m} OK') for m in mods]"; \
+    python -c "import importlib; mods=['pointops._C','pointops2_cuda','pointgroup_ops_cuda']; [importlib.import_module(m) for m in mods]; print('OK:', mods)"; \
     rm -rf /wheels
 
 COPY requirements.txt .
@@ -106,6 +112,7 @@ RUN set -eux; \
     rm requirements.clean.txt requirements.core.txt
 
 RUN set -eux; \
+    python -m pip install --no-cache-dir "numpy==1.26.4"; \
     python -m pip install --no-cache-dir "SharedArray==3.2.4"
 
 COPY . .
