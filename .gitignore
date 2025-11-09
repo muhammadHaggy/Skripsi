@@ -55,7 +55,6 @@ tmslastmile-worker/__pycache__
 # machine-learning
 #############################################
 machine-learning/data/
-machine-learning/exp/
 machine-learning/full_ply/
 machine-learning/npy/
 machine-learning/output/
@@ -227,3 +226,4 @@ opt-algorithm/lab-1/db.sqlite3/
 opt-algorithm/lab-1/hello_name/migrations/*.py
 opt-algorithm/db.sqlite3
 nohup.out
+machine-learning/exp/custom_box/semseg_pt_v3m1_s3dis_2_custom_box_f/test.log
