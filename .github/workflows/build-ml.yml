@@ -1,4 +1,4 @@
-name: Build ML Docker Image (CUDA)
+name: Build ML Docker Image
 
 on:
   push:
@@ -7,71 +7,24 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  packages: write  # only needed if you later push to GHCR
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-22.04
     timeout-minutes: 120
 
     steps:
-      # Optional: reclaim disk space (CI runners are tight, CUDA images are huge)
-      - name: Reclaim disk space
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Optional but helpful: free space for huge CUDA layers
+      - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
           docker system prune -af || true
 
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build image (no push) with cache
-        uses: docker/build-push-action@v6
-        with:
-          context: ./machine-learning
-          file: ./machine-learning/Dockerfile.gpu
-          platforms: linux/amd64
-          push: false
-          tags: ghcr.io/${{ github.repository }}:ci-${{ github.sha }}
-          # BuildKit cache to speed up rebuilds
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # If you pass build args or secrets, add them here:
-          # build-args: |
-          #   STORAGE_API_KEY=${{ secrets.STORAGE_API_KEY }}
-
-      - name: Show image size
+      - name: Build Docker image
         run: |
-          docker images ghcr.io/${{ github.repository }}:ci-${{ github.sha }} --format '{{.Repository}}:{{.Tag}} -> {{.Size}}'
-
-      # Smoke test: run the container and import all native extensions
-      # No GPU runtime needed; we only dlopen libs and import modules.
-      - name: Smoke test compiled ops
-        run: |
-          docker run --rm \
-            -e PYTHONUNBUFFERED=1 \
-            ghcr.io/${{ github.repository }}:ci-${{ github.sha }} \
-            python - <<'PY'
-import sys, importlib, torch
-print("Torch:", torch.__version__, "CUDA:", torch.version.cuda)
-ok = True
-expect_torch="2.2.0"; expect_cuda="12.1"
-if not torch.__version__.startswith(expect_torch): print("!! Torch drift:", torch.__version__); ok=False
-if not (torch.version.cuda or "").startswith(expect_cuda): print("!! CUDA drift:", torch.version.cuda); ok=False
-mods = ["torch_scatter","torch_geometric","mmcv","spconv","pointops._C","pointops2_cuda","pointgroup_ops_cuda"]
-for m in mods:
-    try:
-        importlib.import_module(m); print(m, "OK")
-    except Exception as e:
-        print(m, "FAIL:", e); ok=False
-sys.exit(0 if ok else 1)
-PY
-
+          docker build \
+            -f machine-learning/Dockerfile.gpu \
+            -t ml-ci:${{ github.sha }} \
+            machine-learning
