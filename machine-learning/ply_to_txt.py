@@ -37,9 +37,11 @@ with open(f"data/{args.name}/{args.name}/{args.name}/{args.name}.txt", 'r+') as 
     f.truncate()
 f.close()
 
-f = open(f"data/{args.name}/{args.name}/{args.name}_alignmentAngle.txt", "a")
-f.write(f"{args.name} 0")
-f.close()
+with open(
+    f"data/{args.name}/{args.name}/{args.name}_alignmentAngle.txt",
+    "w",
+) as f:
+    f.write(f"{args.name} 0\n")
 
 shutil.copyfile(f"data/{args.name}/{args.name}/{args.name}/{args.name}.txt", f"data/{args.name}/{args.name}/{args.name}/Annotations/{args.name}.txt")
 

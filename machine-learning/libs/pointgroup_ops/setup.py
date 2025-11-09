@@ -55,5 +55,5 @@ setup(
         )
     ],
     include_dirs=[*include_dirs],
-    cmdclass={"build_ext": BuildExtension},
+    cmdclass={"build_ext": BuildExtension.with_options(use_ninja=False)},
 )

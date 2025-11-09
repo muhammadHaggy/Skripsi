@@ -226,3 +226,4 @@ opt-algorithm/lab-1/.idea/
 opt-algorithm/lab-1/db.sqlite3/
 opt-algorithm/lab-1/hello_name/migrations/*.py
 opt-algorithm/db.sqlite3
+nohup.out

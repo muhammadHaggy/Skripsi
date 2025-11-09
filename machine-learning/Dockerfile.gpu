@@ -45,46 +45,66 @@ ENV PIP_NO_CACHE_DIR=1 \
     MKL_NUM_THREADS=1 \
     NUMEXPR_NUM_THREADS=1
 
-ENV CUDA_HOME=/usr/local/cuda \
-    TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9"
+ARG TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9"
+ENV USE_NINJA=0 \
+    TORCH_CUDA_USE_NINJA=0 \
+    MAX_JOBS=1 \
+    CUDA_HOME=/usr/local/cuda \
+    PATH=${CUDA_HOME}/bin:${PATH} \
+    LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH} \
+    TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
+    FORCE_CUDA=1
 
 # Install Python dependencies, carefully handling PyTorch-related packages
 RUN set -eux; \
-    # 1. Remove problematic VCS dependency (pointops) from requirements.txt
-    sed -i 's|^git+https://github.com/Silverster98/pointops.git||' requirements.txt; \
-    # 2. Create clean requirements file and separate core requirements
     awk 'NF' requirements.txt > requirements.clean.txt; \
-    grep -v -E '^(torch|torchvision|torchaudio|torch_scatter|mmcv|SharedArray|pointops)' \
+    grep -v -E '^(torch($|-)|torchvision|torchaudio|torch[_-]scatter|torch[_-]geometric|torch[_-]sparse|torch[_-]cluster|mmcv|SharedArray|pointops)' \
       requirements.clean.txt > requirements.core.txt; \
     \
-    # 3. Install PyTorch stack from custom index for cu121
     pip install --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cu121 \
       "torch==2.2.0" "torchvision==0.17.0" "torchaudio==2.2.0"; \
     \
-    # 4. Install specific geometry/vision libraries that need custom index/versions
     pip install --no-cache-dir \
       "torch_scatter==2.1.2+pt22cu121" \
       -f https://data.pyg.org/whl/torch-2.2.0+cu121.html; \
     \
-    # 4a. Install torch_geometric matching torch 2.2.0 + cu121
     pip install --no-cache-dir \
       "torch_geometric==2.6.1" \
       -f https://data.pyg.org/whl/torch-2.2.0+cu121.html; \
     \
     pip install --no-cache-dir \
-      mmcv \
+      "mmcv==2.2.0" \
       -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.2/index.html; \
     \
-    # 5. Install all remaining core dependencies
     pip install --prefer-binary -r requirements.core.txt; \
     \
-    # 6. Install packages excluded from core list but required at runtime (after numpy is available)
     pip install --no-cache-dir \
       "SharedArray==3.2.4"; \
     \
-    # 7. Clean up temporary requirements files
     rm requirements.clean.txt requirements.core.txt
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsparsehash-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY libs /app/libs
+
+RUN python -m pip install --no-cache-dir --upgrade \
+      "setuptools<=75.1" \
+      "wheel" \
+      "pybind11==2.13.6" \
+    && (python -m pip uninstall -y ninja || true) \
+    && /usr/local/cuda/bin/nvcc --version \
+    && /usr/local/cuda/bin/ptxas --version \
+    && /usr/local/cuda/nvvm/bin/cicc --version \
+    && pip wheel --no-cache-dir --no-build-isolation --no-deps -w /tmp/wheels \
+      /app/libs/pointops \
+      /app/libs/pointops2 \
+      /app/libs/pointgroup_ops \
+    && pip install --no-cache-dir --no-deps /tmp/wheels/*.whl \
+    && python -c "import importlib; mods=['pointops._C','pointops2_cuda','pointgroup_ops_cuda']; [importlib.import_module(m) for m in mods]; [print(f'{m} OK') for m in mods]" \
+    && rm -rf /tmp/wheels
 
 # --------------------------------------------------------------------------------
 # STAGE 3: Application Code and Entrypoint
@@ -96,7 +116,7 @@ COPY . .
 RUN chmod +x /app/entrypoint.sh
 
 # Set final application specific environment variable
-ENV INSTALL_POINTOPS_AT_RUNTIME=1
+ENV INSTALL_POINTOPS_AT_RUNTIME=0
 
 # Expose the application port
 EXPOSE 5001
