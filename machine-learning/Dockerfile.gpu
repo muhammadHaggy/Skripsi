@@ -38,7 +38,8 @@ RUN set -eux; \
     python3 -m pip wheel --no-cache-dir --no-build-isolation --no-deps -w /wheelhouse \
       /src/libs/pointops \
       /src/libs/pointops2 \
-      /src/libs/pointgroup_ops
+      /src/libs/pointgroup_ops \
+      "SharedArray==3.2.4"
 
 # --------------------------------------------------------------------------------
 # STAGE 2: Runtime image
@@ -47,6 +48,10 @@ FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9"
+
+ENV CUDA_HOME=/usr/local/cuda \
+    PATH=/usr/local/cuda/bin:${PATH} \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
 RUN set -eux; \
     rm -f /etc/apt/apt.conf.d/docker-clean || true; \
@@ -66,13 +71,10 @@ ENV PIP_NO_CACHE_DIR=1 \
     OMP_NUM_THREADS=1 \
     MKL_NUM_THREADS=1 \
     NUMEXPR_NUM_THREADS=1 \
-    CUDA_HOME=/usr/local/cuda \
     TORCH_CUDA_USE_NINJA=0 \
     MAX_JOBS=1 \
     TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
-    FORCE_CUDA=1 \
-    PATH=/usr/local/cuda/bin:${PATH} \
-    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+    FORCE_CUDA=1
 
 WORKDIR /app
 
@@ -95,17 +97,15 @@ RUN set -eux; \
       "mmcv==2.2.0" \
       -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.2/index.html; \
     python -m pip install --prefer-binary -r requirements.core.txt; \
-    python -m pip install --no-cache-dir \
-      "SharedArray==3.2.4"; \
     rm requirements.clean.txt requirements.core.txt
 
-COPY --from=wheels /wheelhouse /wheelhouse
+COPY --from=wheels /wheelhouse /wheels
 
 RUN set -eux; \
-    python -m pip install --no-cache-dir --no-deps /wheelhouse/*.whl; \
+    python -m pip install --no-cache-dir --no-deps /wheels/*.whl; \
     python -m pip install --no-cache-dir "ninja==1.11.1.4"; \
     python -c "import importlib; mods=['pointops._C','pointops2_cuda','pointgroup_ops_cuda']; [importlib.import_module(m) for m in mods]; [print(f'{m} OK') for m in mods]"; \
-    rm -rf /wheelhouse
+    rm -rf /wheels
 
 COPY . .
 
