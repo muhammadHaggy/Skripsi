@@ -22,6 +22,7 @@ RUN set -eux; \
     python3 -m pip install --no-cache-dir --upgrade "pip==24.3.1"; \
     python3 -m pip install --no-cache-dir "setuptools<=75.1" "wheel"; \
     python3 -m pip install --no-cache-dir "pybind11==2.13.6" "ninja==1.11.1.4"; \
+    python3 -m pip install --no-cache-dir "numpy==1.26.4"; \
     python3 -m pip install --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cu121 \
       "torch==2.2.0+cu121"; \
@@ -81,6 +82,7 @@ RUN set -eux; \
     python -m pip install --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cu121 \
       "torch==2.2.0" "torchvision==0.17.0" "torchaudio==2.2.0"; \
+    python -m pip install --no-cache-dir "numpy==1.26.4"; \
     python -m pip install --no-cache-dir --no-deps /wheels/*.whl; \
     python -m pip install --no-cache-dir "ninja==1.11.1.4"; \
     python -c "import importlib; mods=['pointops._C','pointops2_cuda','pointgroup_ops_cuda']; [importlib.import_module(m) for m in mods]; print('OK:', mods)"; \
