@@ -83,6 +83,9 @@ RUN set -eux; \
       --index-url https://download.pytorch.org/whl/cu121 \
       "torch==2.2.0" "torchvision==0.17.0" "torchaudio==2.2.0"; \
     python -m pip install --no-cache-dir "numpy==1.26.4"; \
+    python -m pip install --no-cache-dir \
+      "cumm-cu121==0.4.12" \
+      "spconv-cu121==2.3.8"; \
     python -m pip install --no-cache-dir --no-deps /wheels/*.whl; \
     python -m pip install --no-cache-dir "ninja==1.11.1.4"; \
     python -c "import importlib; mods=['pointops._C','pointops2_cuda','pointgroup_ops_cuda']; [importlib.import_module(m) for m in mods]; print('OK:', mods)"; \
@@ -106,6 +109,7 @@ RUN set -eux; \
     python -m pip install --no-cache-dir \
       "mmcv==2.2.0" \
       -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.2/index.html; \
+    # ensure requirements.txt pins the cu121 variants of spconv/cumm
     python -m pip install --prefer-binary -r requirements.core.txt; \
     rm requirements.clean.txt requirements.core.txt
 
