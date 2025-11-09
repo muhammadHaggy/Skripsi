@@ -37,8 +37,7 @@ RUN set -eux; \
     python3 -m pip wheel --no-cache-dir --no-build-isolation --no-deps -w /wheelhouse \
       /src/libs/pointops \
       /src/libs/pointops2 \
-      /src/libs/pointgroup_ops \
-      "SharedArray==3.2.4"
+      /src/libs/pointgroup_ops
 
 # --------------------------------------------------------------------------------
 # STAGE 2: Runtime image
@@ -105,6 +104,9 @@ RUN set -eux; \
       -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.2/index.html; \
     python -m pip install --prefer-binary -r requirements.core.txt; \
     rm requirements.clean.txt requirements.core.txt
+
+RUN set -eux; \
+    python -m pip install --no-cache-dir "SharedArray==3.2.4"
 
 COPY . .
 
