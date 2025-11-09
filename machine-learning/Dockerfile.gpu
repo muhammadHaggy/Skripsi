@@ -48,23 +48,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9"
 
 ENV CUDA_HOME=/usr/local/cuda \
-    PATH=/usr/local/cuda/bin:${PATH} \
-    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
-
-RUN set -eux; \
-    rm -f /etc/apt/apt.conf.d/docker-clean || true; \
-    mkdir -p /var/cache/apt/archives/partial; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-      python3.10 python3-pip python3.10-venv git libgl1 curl; \
-    ln -sf /usr/bin/python3.10 /usr/bin/python; \
-    python -m pip install --no-cache-dir --progress-bar off --upgrade "pip==24.3.1" "setuptools<=75.1" "wheel"; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*
-
-ENV CUDA_HOME=/usr/local/cuda \
-    PATH=/usr/local/cuda/bin:${PATH} \
-    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH} \
+    PATH=/usr/local/cuda/bin:$PATH \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH \
     PIP_NO_CACHE_DIR=1 \
     PIP_PROGRESS_BAR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -76,6 +61,17 @@ ENV CUDA_HOME=/usr/local/cuda \
     MAX_JOBS=1 \
     TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
     FORCE_CUDA=1
+
+RUN set -eux; \
+    rm -f /etc/apt/apt.conf.d/docker-clean || true; \
+    mkdir -p /var/cache/apt/archives/partial; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      python3.10 python3-pip python3.10-venv git libgl1 curl; \
+    ln -sf /usr/bin/python3.10 /usr/bin/python; \
+    python -m pip install --no-cache-dir --progress-bar off --upgrade "pip==24.3.1" "setuptools<=75.1" "wheel"; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -112,8 +108,13 @@ RUN set -eux; \
     rm requirements.clean.txt requirements.core.txt
 
 RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends build-essential python3-dev; \
     python -m pip install --no-cache-dir "numpy==1.26.4"; \
-    python -m pip install --no-cache-dir "SharedArray==3.2.4"
+    python -m pip install --no-cache-dir "SharedArray==3.2.4"; \
+    apt-get purge -y build-essential python3-dev; \
+    apt-get autoremove -y; \
+    rm -rf /var/lib/apt/lists/*
 
 COPY . .
 
