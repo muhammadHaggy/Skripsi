@@ -83,12 +83,24 @@ RUN set -eux; \
       --index-url https://download.pytorch.org/whl/cu121 \
       "torch==2.2.0" "torchvision==0.17.0" "torchaudio==2.2.0"; \
     python -m pip install --no-cache-dir "numpy==1.26.4"; \
+    python -m pip uninstall -y spconv spconv-cu121 cumm cumm-cu121 || true; \
     python -m pip install --no-cache-dir \
-      "cumm-cu121==0.8.2" \
+      "cumm-cu121==0.7.12" \
       "spconv-cu121==2.3.8"; \
     python -m pip install --no-cache-dir --no-deps /wheels/*.whl; \
     python -m pip install --no-cache-dir "ninja==1.11.1.4"; \
-    python -c "import importlib; mods=['pointops._C','pointops2_cuda','pointgroup_ops_cuda']; [importlib.import_module(m) for m in mods]; print('OK:', mods)"; \
+    python - <<'PY'
+import importlib
+import pathlib
+import cumm
+
+mods = ['pointops._C', 'pointops2_cuda', 'pointgroup_ops_cuda']
+[importlib.import_module(m) for m in mods]
+inc = pathlib.Path(cumm.__file__).parent / "include" / "tensorview" / "core" / "all.h"
+print('OK:', mods)
+print('cumm header exists:', inc, inc.exists())
+assert inc.exists(), 'cumm headers missing'
+PY
     rm -rf /wheels
 
 COPY requirements.txt .
