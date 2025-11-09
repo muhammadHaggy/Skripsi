@@ -1,49 +1,29 @@
-# --------------------------------------------------------------------------------
-# STAGE 1: Base Setup and System Dependencies
-# --------------------------------------------------------------------------------
-# Base image with CUDA, cuDNN, and Ubuntu 22.04 development tools
-FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
+# syntax=docker/dockerfile:1.7
 
-# Set environment variable for non-interactive package installation
+# syntax=docker/dockerfile:1.7
+
+# ------------------------------------------------------------------------------
+# STAGE 1: Build (compile native extensions, install deps)
+# ------------------------------------------------------------------------------
+FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04 AS build
+
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Install core system dependencies (Python 3.10, build tools, git, graphics libs)
-RUN set -eux; \
-    # Clean up and ensure partial directory exists
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+    set -eux; \
     rm -f /etc/apt/apt.conf.d/docker-clean || true; \
     mkdir -p /var/cache/apt/archives/partial; \
-    \
-    # Update and install required packages
     apt-get update; \
     apt-get install -y --no-install-recommends \
-      python3.10 python3-pip python3.10-venv python3.10-dev git build-essential libgl1 curl; \
-    \
-    # Create symlink for 'python' to point to python3.10
+      python3.10 python3-pip python3.10-venv python3.10-dev \
+      git build-essential libgl1 curl ccache libsparsehash-dev; \
     ln -sf /usr/bin/python3.10 /usr/bin/python; \
-    \
-    # Upgrade pip to the specified version
-    python -m pip install --no-cache-dir --progress-bar off --upgrade "pip==24.3.1"; \
-    \
-    # Cleanup system files to reduce image size
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
 
-# Set the working directory for the application
-WORKDIR /app
-
-# --------------------------------------------------------------------------------
-# STAGE 2: Python Dependency Installation
-# --------------------------------------------------------------------------------
-# Copy only the requirements file to leverage build cache
-COPY requirements.txt .
-
-ENV PIP_NO_CACHE_DIR=1 \
-    PIP_PROGRESS_BAR=off \
+ENV PIP_PROGRESS_BAR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    OPENBLAS_NUM_THREADS=1 \
-    OMP_NUM_THREADS=1 \
-    MKL_NUM_THREADS=1 \
-    NUMEXPR_NUM_THREADS=1
+    CCACHE_DIR=/root/.cache/ccache
 
 ARG TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9"
 ENV USE_NINJA=0 \
@@ -55,73 +35,97 @@ ENV USE_NINJA=0 \
     TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
     FORCE_CUDA=1
 
-# Install Python dependencies, carefully handling PyTorch-related packages
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --upgrade "pip==24.3.1"
+
 RUN set -eux; \
     awk 'NF' requirements.txt > requirements.clean.txt; \
     grep -v -E '^(torch($|-)|torchvision|torchaudio|torch[_-]scatter|torch[_-]geometric|torch[_-]sparse|torch[_-]cluster|mmcv|SharedArray|pointops)' \
-      requirements.clean.txt > requirements.core.txt; \
-    \
-    pip install --no-cache-dir \
+      requirements.clean.txt > requirements.core.txt
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    set -eux; \
+    pip install \
       --index-url https://download.pytorch.org/whl/cu121 \
       "torch==2.2.0" "torchvision==0.17.0" "torchaudio==2.2.0"; \
-    \
-    pip install --no-cache-dir \
+    pip install \
       "torch_scatter==2.1.2+pt22cu121" \
       -f https://data.pyg.org/whl/torch-2.2.0+cu121.html; \
-    \
-    pip install --no-cache-dir \
+    pip install \
       "torch_geometric==2.6.1" \
       -f https://data.pyg.org/whl/torch-2.2.0+cu121.html; \
-    \
-    pip install --no-cache-dir \
+    pip install \
       "mmcv==2.2.0" \
       -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.2/index.html; \
-    \
     pip install --prefer-binary -r requirements.core.txt; \
-    \
-    pip install --no-cache-dir \
-      "SharedArray==3.2.4"; \
-    \
+    pip install "SharedArray==3.2.4"; \
     rm requirements.clean.txt requirements.core.txt
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libsparsehash-dev \
-  && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/root/.cache/ccache \
+    set -eux; \
+    mkdir -p "${CCACHE_DIR}"; \
+    ln -sf /usr/bin/ccache /usr/local/bin/gcc; \
+    ln -sf /usr/bin/ccache /usr/local/bin/g++; \
+    printf 'max_size = 5.0G\n' > "${CCACHE_DIR}/ccache.conf"
 
 COPY libs /app/libs
 
-RUN python -m pip install --no-cache-dir --upgrade \
+RUN --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/root/.cache/ccache \
+    python -m pip install --upgrade \
       "setuptools<=75.1" \
       "wheel" \
       "pybind11==2.13.6" \
     && (python -m pip uninstall -y ninja || true) \
     && /usr/local/cuda/bin/nvcc --version \
     && /usr/local/cuda/bin/ptxas --version \
-    && pip wheel --no-cache-dir --no-build-isolation --no-deps -w /tmp/wheels \
+    && pip wheel --no-build-isolation --no-deps -w /tmp/wheels \
       /app/libs/pointops \
       /app/libs/pointops2 \
       /app/libs/pointgroup_ops \
-    && pip install --no-cache-dir --no-deps /tmp/wheels/*.whl \
+    && pip install --no-deps /tmp/wheels/*.whl \
     && python -c "import importlib; mods=['pointops._C','pointops2_cuda','pointgroup_ops_cuda']; [importlib.import_module(m) for m in mods]; [print(f'{m} OK') for m in mods]" \
     && rm -rf /tmp/wheels
 
-# --------------------------------------------------------------------------------
-# STAGE 3: Application Code and Entrypoint
-# --------------------------------------------------------------------------------
-# Copy the rest of the application files
+# ------------------------------------------------------------------------------
+# STAGE 2: Runtime (slim CUDA runtime image)
+# ------------------------------------------------------------------------------
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS runtime
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+    set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      python3.10 python3-pip python3.10-venv libgl1 curl; \
+    ln -sf /usr/bin/python3.10 /usr/bin/python; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PIP_PROGRESS_BAR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    CUDA_HOME=/usr/local/cuda \
+    PATH=${CUDA_HOME}/bin:${PATH} \
+    LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH} \
+    TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST:-"7.5;8.0;8.6;8.9"} \
+    FORCE_CUDA=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY --from=build /usr/local/lib/python3.10/dist-packages /usr/local/lib/python3.10/dist-packages
+COPY --from=build /usr/local/bin /usr/local/bin
+
 COPY . .
 
-# Ensure the entrypoint script is executable
 RUN chmod +x /app/entrypoint.sh
 
-# Set final application specific environment variable
 ENV INSTALL_POINTOPS_AT_RUNTIME=0
 
-# Expose the application port
 EXPOSE 5001
 
-# Ensure Python output is unbuffered
-ENV PYTHONUNBUFFERED=1
-
-# Define the entrypoint command
 ENTRYPOINT ["/app/entrypoint.sh"]

@@ -1,0 +1,10 @@
+.git
+**/__pycache__/
+**/*.pyc
+.env
+data/
+checkpoints/
+outputs/
+wandb/
+.notebooks/
+*.ipynb
