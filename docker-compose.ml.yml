@@ -5,10 +5,7 @@ services:
     ulimits:
       stack: 8388608    
       nproc: 40960
-    build:
-      context: ./machine-learning
-      dockerfile: Dockerfile.gpu
-    image: custom-ml-service:local
+    image: ghcr.io/muhammadhaggy/skripsi/ml-ci:latest
     container_name: ml_service
     ports:
       - "5001:5001"

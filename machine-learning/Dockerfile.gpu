@@ -103,7 +103,8 @@ RUN python -m pip install --no-cache-dir --upgrade \
       /app/libs/pointgroup_ops \
     && pip install --no-cache-dir --no-deps /tmp/wheels/*.whl \
     && python -c "import importlib; mods=['pointops._C','pointops2_cuda','pointgroup_ops_cuda']; [importlib.import_module(m) for m in mods]; [print(f'{m} OK') for m in mods]" \
-    && rm -rf /tmp/wheels
+    && rm -rf /tmp/wheels \
+    && python -m pip install --no-cache-dir "ninja==1.11.1.4"
 
 # --------------------------------------------------------------------------------
 # STAGE 3: Application Code and Entrypoint
