@@ -101,7 +101,8 @@ print('OK:', mods)
 print('cumm header exists:', inc, inc.exists())
 assert inc.exists(), 'cumm headers missing'
 PY
-    rm -rf /wheels
+
+RUN rm -rf /wheels
 
 COPY requirements.txt .
 
