@@ -97,7 +97,6 @@ RUN python -m pip install --no-cache-dir --upgrade \
     && (python -m pip uninstall -y ninja || true) \
     && /usr/local/cuda/bin/nvcc --version \
     && /usr/local/cuda/bin/ptxas --version \
-    && /usr/local/cuda/nvvm/bin/cicc --version \
     && pip wheel --no-cache-dir --no-build-isolation --no-deps -w /tmp/wheels \
       /app/libs/pointops \
       /app/libs/pointops2 \
