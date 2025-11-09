@@ -19,9 +19,18 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
           docker system prune -af || true
 
-      - name: Build Docker image
-        run: |
-          docker build \
-            -f machine-learning/Dockerfile.gpu \
-            -t ml-ci:${{ github.sha }} \
-            machine-learning
+      # Set up Buildx (includes up-to-date BuildKit for GHA cache v2)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build with GHA cache (fast + simple)
+      - name: Build Docker image (cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: machine-learning/Dockerfile.gpu
+          tags: ml-ci:${{ github.sha }}
+          push: false
+          # If a later step needs `docker run`, add: load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
