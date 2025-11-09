@@ -84,7 +84,7 @@ RUN set -eux; \
       "torch==2.2.0" "torchvision==0.17.0" "torchaudio==2.2.0"; \
     python -m pip install --no-cache-dir "numpy==1.26.4"; \
     python -m pip install --no-cache-dir \
-      "cumm-cu121==0.4.12" \
+      "cumm-cu121==0.8.2" \
       "spconv-cu121==2.3.8"; \
     python -m pip install --no-cache-dir --no-deps /wheels/*.whl; \
     python -m pip install --no-cache-dir "ninja==1.11.1.4"; \
