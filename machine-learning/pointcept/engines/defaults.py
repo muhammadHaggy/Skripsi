@@ -115,7 +115,9 @@ def default_config_parser(file_path, options, test_split=None):
         cfg = Config.fromfile(file_path)
     else:
         sep = file_path.find("-")
-        cfg = Config.fromfile(os.path.join(file_path[:sep], file_path[sep + 1 :]))
+        if not file_path.endswith('.py'):
+            file_path += '.py'
+        cfg = Config.fromfile(file_path)
 
     if options is not None:
         cfg.merge_from_dict(options)
