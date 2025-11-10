@@ -57,28 +57,49 @@ RUN set -eux; \
     mamba env create -f environment.yml -n pointcept-torch2.5.0-cu12.4; \
     mamba clean -afy
 
+# Write verification script
+RUN cat > /tmp/verify_env.py <<'EOF'
+import torch
+import importlib
+from pathlib import Path
+
+print(f'Python: {torch.version.__version__}')
+print(f'PyTorch: {torch.__version__}')
+print(f'CUDA available: {torch.cuda.is_available()}')
+print(f'CUDA version: {torch.version.cuda}')
+
+# Test spconv installation
+try:
+    import spconv.pytorch as spconv
+    import cumm
+    print(f'spconv version: {spconv.__version__}')
+    print(f'cumm version: {cumm.__version__}')
+    inc = Path(cumm.__file__).parent / 'include' / 'tensorview' / 'core' / 'all.h'
+    print(f'cumm header exists: {inc.exists()}')
+    assert inc.exists(), 'cumm headers missing'
+except ImportError as e:
+    print(f'spconv/cumm import failed: {e}')
+
+# Test PyG
+try:
+    import torch_geometric
+    import torch_scatter
+    print(f'torch_geometric: {torch_geometric.__version__}')
+    print(f'torch_scatter: {torch_scatter.__version__}')
+except ImportError as e:
+    print(f'PyG import failed: {e}')
+
+print('✓ Environment verification complete')
+EOF
+
 # Activate environment and verify installation
 RUN set -eux; \
     bash -c "source /opt/conda/etc/profile.d/conda.sh && \
     conda activate pointcept-torch2.5.0-cu12.4 && \
-    python -c \"import torch; \
-import importlib; \
-from pathlib import Path; \
-print(f'Python: {torch.version.__version__}'); \
-print(f'PyTorch: {torch.__version__}'); \
-print(f'CUDA available: {torch.cuda.is_available()}'); \
-print(f'CUDA version: {torch.version.cuda}'); \
-exec(\\\"try:\\n    import spconv.pytorch as spconv\\n    import cumm\\n    print(f'spconv version: {spconv.__version__}')\\n    print(f'cumm version: {cumm.__version__}')\\n    inc = Path(cumm.__file__).parent / 'include' / 'tensorview' / 'core' / 'all.h'\\n    print(f'cumm header exists: {inc.exists()}')\\n    assert inc.exists(), 'cumm headers missing'\\nexcept ImportError as e:\\n    print(f'spconv/cumm import failed: {e}')\\ntry:\\n    import torch_geometric\\n    import torch_scatter\\n    print(f'torch_geometric: {torch_geometric.__version__}')\\n    print(f'torch_scatter: {torch_scatter.__version__}')\\nexcept ImportError as e:\\n    print(f'PyG import failed: {e}')\\nprint('✓ Environment verification complete')\\\"); \
-\""
+    python /tmp/verify_env.py"
 
-# Build and test custom CUDA extensions
-RUN set -eux; \
-    /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && \
-    conda activate pointcept-torch2.5.0-cu12.4 && \
-    export MAX_JOBS=\$(nproc) && \
-    cd /app/libs/pointops && pip install --no-cache-dir -e . && \
-    cd /app/libs/pointgroup_ops && pip install --no-cache-dir -e . && \
-    python - <<'PY'
+# Write test script for custom extensions
+RUN cat > /tmp/test_extensions.py <<'EOF'
 import importlib
 
 extensions = ['pointops._C', 'pointgroup_ops_cuda']
@@ -91,14 +112,19 @@ for ext in extensions:
         raise
 
 print('✓ Custom CUDA extensions built and verified')
-PY
-"
+EOF
 
-# Smoke test spconv with actual CUDA operation
+# Build and test custom CUDA extensions
 RUN set -eux; \
-    /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && \
+    bash -c "source /opt/conda/etc/profile.d/conda.sh && \
     conda activate pointcept-torch2.5.0-cu12.4 && \
-    python - <<'PY'
+    export MAX_JOBS=\$(nproc) && \
+    cd /app/libs/pointops && pip install --no-cache-dir -e . && \
+    cd /app/libs/pointgroup_ops && pip install --no-cache-dir -e . && \
+    python /tmp/test_extensions.py"
+
+# Write spconv smoke test
+RUN cat > /tmp/test_spconv.py <<'EOF'
 import torch
 import spconv.pytorch as spconv
 
@@ -114,8 +140,13 @@ if torch.cuda.is_available():
     print(f'✓ spconv forward pass successful! Output shape: {output.dense().shape}')
 else:
     print('⚠ CUDA not available, skipping spconv GPU test')
-PY
-"
+EOF
+
+# Smoke test spconv with actual CUDA operation
+RUN set -eux; \
+    bash -c "source /opt/conda/etc/profile.d/conda.sh && \
+    conda activate pointcept-torch2.5.0-cu12.4 && \
+    python /tmp/test_spconv.py"
 
 # Copy application code
 COPY . .
