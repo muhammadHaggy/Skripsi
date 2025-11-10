@@ -108,7 +108,8 @@ COPY requirements.txt .
 
 RUN set -eux; \
     awk 'NF' requirements.txt > requirements.clean.txt; \
-    grep -v -E '^(torch($|-)|torchvision|torchaudio|torch[_-]scatter|torch[_-]geometric|torch[_-]sparse|torch[_-]cluster|mmcv|SharedArray|pointops)' \
+    # keep this exclusion list in sync with requirements.txt to avoid reinstalling GPU wheels with CPU defaults
+    grep -v -E '^(torch($|-)|torchvision|torchaudio|torch[_-]scatter|torch[_-]geometric|torch[_-]sparse|torch[_-]cluster|mmcv|SharedArray|pointops|spconv|cumm)' \
       requirements.clean.txt > requirements.core.txt; \
     python -m pip install --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cu121 \
@@ -122,7 +123,6 @@ RUN set -eux; \
     python -m pip install --no-cache-dir \
       "mmcv==2.2.0" \
       -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.2/index.html; \
-    # ensure requirements.txt pins the cu121 variants of spconv/cumm
     python -m pip install --prefer-binary -r requirements.core.txt; \
     rm requirements.clean.txt requirements.core.txt
 

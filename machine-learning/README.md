@@ -1,5 +1,12 @@
 # Tutorial
 
+## Runtime Environment
+
+- The Docker image ships with CUDA 12.1 libraries; we no longer install `nvidia-*-cu12` pip wheels. If you run locally, match this CUDA toolchain.
+- `torch`, `torchvision`, `torchaudio`, `torch_scatter`, and `torch_geometric` are installed inside the container (see `Dockerfile.gpu`). Do not add them back to `requirements.txt`.
+- Sparse conv dependencies (`cumm-cu121`, `spconv-cu121`) are pinned to CUDA 12.1 builds; keep the include path variables (`TV_CUDA_INCLUDE_DIRS`, `CUMM_INCLUDE_DIRS`) when running outside Docker.
+- Restart the container if you change these low-level dependencies so the runtime sanity checks can re-run.
+
 ## Installation
 1. head to ta-sultan-ghaitsa/ptv3
 2. Run this command to prepare the environment
