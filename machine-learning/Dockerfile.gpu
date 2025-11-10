@@ -1,4 +1,4 @@
-FROM conda/miniconda3:latest
+FROM continuumio/anaconda3:latest
 
 # Set working directory
 WORKDIR /app
