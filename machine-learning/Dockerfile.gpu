@@ -1,159 +1,31 @@
-FROM ubuntu:22.04
+FROM conda/miniconda3:latest
 
-ARG DEBIAN_FRONTEND=noninteractive
-ARG TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0"
-
-ENV SPCONV_DISABLE_JIT=1 \
-    CUMM_DISABLE_JIT=1 \
-    PYTHONUNBUFFERED=1
-
-# Install system dependencies
-RUN set -eux; \
-    rm -f /etc/apt/apt.conf.d/docker-clean || true; \
-    mkdir -p /var/cache/apt/archives/partial; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-      wget \
-      bzip2 \
-      ca-certificates \
-      git \
-      libgl1 \
-      libgomp1 \
-      curl; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Mambaforge (faster than conda)
-RUN set -eux; \
-    curl -fsSL https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh -o /tmp/mambaforge.sh; \
-    bash /tmp/mambaforge.sh -b -p /opt/conda; \
-    rm /tmp/mambaforge.sh; \
-    /opt/conda/bin/conda clean -afy
-
-ENV PATH=/opt/conda/bin:${PATH} \
-    CONDA_PREFIX=/opt/conda
-
-# Initialize conda for shell
-RUN conda init bash && \
-    echo "conda activate pointcept-torch2.5.0-cu12.4" >> ~/.bashrc
-
+# Set working directory
 WORKDIR /app
 
-# Copy environment file and source code
-COPY environment.yml .
-COPY libs/ /app/libs/
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy environment file first for better layer caching
+COPY environment.yml /app/environment.yml
 
 # Create conda environment from environment.yml
-RUN set -eux; \
-    mamba env create -f environment.yml -n pointcept-torch2.5.0-cu12.4; \
-    mamba clean -afy
+RUN conda env create -f environment.yml && \
+    conda clean -afy
 
-# Write verification script
-RUN cat > /tmp/verify_env.py <<'EOF'
-import torch
-import importlib
-from pathlib import Path
+# Copy the rest of the application
+COPY . /app/
 
-print(f'Python: {torch.version.__version__}')
-print(f'PyTorch: {torch.__version__}')
-print(f'CUDA available: {torch.cuda.is_available()}')
-print(f'CUDA version: {torch.version.cuda}')
-
-# Test spconv installation
-try:
-    import spconv.pytorch as spconv
-    import cumm
-    print(f'spconv version: {spconv.__version__}')
-    print(f'cumm version: {cumm.__version__}')
-    inc = Path(cumm.__file__).parent / 'include' / 'tensorview' / 'core' / 'all.h'
-    print(f'cumm header exists: {inc.exists()}')
-    assert inc.exists(), 'cumm headers missing'
-except ImportError as e:
-    print(f'spconv/cumm import failed: {e}')
-
-# Test PyG
-try:
-    import torch_geometric
-    import torch_scatter
-    print(f'torch_geometric: {torch_geometric.__version__}')
-    print(f'torch_scatter: {torch_scatter.__version__}')
-except ImportError as e:
-    print(f'PyG import failed: {e}')
-
-print('✓ Environment verification complete')
-EOF
-
-# Activate environment and verify installation
-RUN set -eux; \
-    bash -c "source /opt/conda/etc/profile.d/conda.sh && \
-    conda activate pointcept-torch2.5.0-cu12.4 && \
-    python /tmp/verify_env.py"
-
-# Write test script for custom extensions
-RUN cat > /tmp/test_extensions.py <<'EOF'
-import importlib
-
-extensions = ['pointops._C', 'pointgroup_ops_cuda']
-for ext in extensions:
-    try:
-        mod = importlib.import_module(ext)
-        print(f'✓ {ext} loaded successfully')
-    except ImportError as e:
-        print(f'✗ {ext} failed: {e}')
-        raise
-
-print('✓ Custom CUDA extensions built and verified')
-EOF
-
-# Build and test custom CUDA extensions
-RUN set -eux; \
-    bash -c "source /opt/conda/etc/profile.d/conda.sh && \
-    conda activate pointcept-torch2.5.0-cu12.4 && \
-    export CUDA_HOME=\$CONDA_PREFIX && \
-    export PATH=\$CUDA_HOME/bin:\$PATH && \
-    export LD_LIBRARY_PATH=\$CUDA_HOME/lib:\$LD_LIBRARY_PATH && \
-    export TORCH_CUDA_ARCH_LIST='${TORCH_CUDA_ARCH_LIST}' && \
-    export FORCE_CUDA=1 && \
-    export TORCH_CUDA_USE_NINJA=1 && \
-    export MAX_JOBS=\$(nproc) && \
-    cd /app/libs/pointops && pip install --no-cache-dir -e . && \
-    cd /app/libs/pointgroup_ops && pip install --no-cache-dir -e . && \
-    python /tmp/test_extensions.py"
-
-# Write spconv smoke test
-RUN cat > /tmp/test_spconv.py <<'EOF'
-import torch
-import spconv.pytorch as spconv
-
-print('Testing spconv forward pass (JIT should be disabled)...')
-if torch.cuda.is_available():
-    x = spconv.SparseConvTensor.from_dense(
-        torch.randn(1, 2, 4, 4, 4, device='cuda')
-    )
-    m = spconv.SparseSequential(
-        spconv.SubMConv3d(2, 2, 3, indice_key='k')
-    )
-    output = m(x)
-    print(f'✓ spconv forward pass successful! Output shape: {output.dense().shape}')
-else:
-    print('⚠ CUDA not available, skipping spconv GPU test')
-EOF
-
-# Smoke test spconv with actual CUDA operation
-RUN set -eux; \
-    bash -c "source /opt/conda/etc/profile.d/conda.sh && \
-    conda activate pointcept-torch2.5.0-cu12.4 && \
-    python /tmp/test_spconv.py"
-
-# Copy application code
-COPY . .
-
+# Make entrypoint script executable
 RUN chmod +x /app/entrypoint.sh
 
-# Set environment variables for runtime
-ENV CONDA_DEFAULT_ENV=pointcept-torch2.5.0-cu12.4 \
-    INSTALL_POINTOPS_AT_RUNTIME=0
-
+# Expose Flask port
 EXPOSE 5001
 
+# Set entrypoint
 ENTRYPOINT ["/app/entrypoint.sh"]
