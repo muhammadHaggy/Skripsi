@@ -5,11 +5,16 @@ set -e
 source /opt/conda/etc/profile.d/conda.sh
 conda activate pointcept-torch2.5.0-cu12.4
 
+# Set CUDA environment variables (conda provides CUDA)
+export CUDA_HOME=${CONDA_PREFIX}
+export PATH=${CUDA_HOME}/bin:${PATH}
+export LD_LIBRARY_PATH=${CUDA_HOME}/lib:${LD_LIBRARY_PATH}
+
 # Optional runtime install of pointops to leverage host GPU and avoid build env limits
 if [ "${INSTALL_POINTOPS_AT_RUNTIME:-0}" = "1" ]; then
-  export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
   export TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST:-"7.5;8.0;8.6;8.9;9.0"}
   export FORCE_CUDA=1
+  export TORCH_CUDA_USE_NINJA=1
 
   MISSING="$(python - <<'PY'
 import importlib

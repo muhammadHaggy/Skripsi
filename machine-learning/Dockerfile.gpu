@@ -1,18 +1,9 @@
-# --------------------------------------------------------------------------------
-# CUDA 12.4 + Torch 2.5.0 Conda-based ML Environment
-# --------------------------------------------------------------------------------
-FROM nvidia/cuda:12.4.1-cudnn9-devel-ubuntu22.04
+FROM ubuntu:22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0"
 
-ENV CUDA_HOME=/usr/local/cuda \
-    TORCH_CUDA_USE_NINJA=1 \
-    TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
-    FORCE_CUDA=1 \
-    PATH=${CUDA_HOME}/bin:${PATH} \
-    LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH} \
-    SPCONV_DISABLE_JIT=1 \
+ENV SPCONV_DISABLE_JIT=1 \
     CUMM_DISABLE_JIT=1 \
     PYTHONUNBUFFERED=1
 
@@ -118,6 +109,12 @@ EOF
 RUN set -eux; \
     bash -c "source /opt/conda/etc/profile.d/conda.sh && \
     conda activate pointcept-torch2.5.0-cu12.4 && \
+    export CUDA_HOME=\$CONDA_PREFIX && \
+    export PATH=\$CUDA_HOME/bin:\$PATH && \
+    export LD_LIBRARY_PATH=\$CUDA_HOME/lib:\$LD_LIBRARY_PATH && \
+    export TORCH_CUDA_ARCH_LIST='${TORCH_CUDA_ARCH_LIST}' && \
+    export FORCE_CUDA=1 && \
+    export TORCH_CUDA_USE_NINJA=1 && \
     export MAX_JOBS=\$(nproc) && \
     cd /app/libs/pointops && pip install --no-cache-dir -e . && \
     cd /app/libs/pointgroup_ops && pip install --no-cache-dir -e . && \
