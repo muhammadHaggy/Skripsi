@@ -25,7 +25,7 @@ RUN set -eux; \
 
 # Install Mambaforge (faster than conda)
 RUN set -eux; \
-    wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh -O /tmp/mambaforge.sh; \
+    curl -fsSL https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh -o /tmp/mambaforge.sh; \
     bash /tmp/mambaforge.sh -b -p /opt/conda; \
     rm /tmp/mambaforge.sh; \
     /opt/conda/bin/conda clean -afy
