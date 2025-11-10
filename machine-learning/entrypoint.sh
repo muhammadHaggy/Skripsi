@@ -1,15 +1,19 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -e
 
+# Activate conda environment
+source /opt/conda/etc/profile.d/conda.sh
+conda activate pointcept-torch2.5.0-cu12.4
+
 # Optional runtime install of pointops to leverage host GPU and avoid build env limits
-if [ "${INSTALL_POINTOPS_AT_RUNTIME:-1}" = "1" ]; then
+if [ "${INSTALL_POINTOPS_AT_RUNTIME:-0}" = "1" ]; then
   export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
-  export TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST:-"7.5;8.0;8.6;8.9"}
+  export TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST:-"7.5;8.0;8.6;8.9;9.0"}
   export FORCE_CUDA=1
 
   MISSING="$(python - <<'PY'
 import importlib
-pkgs = ["pointops", "pointops2", "pointgroup_ops"]
+pkgs = ["pointops", "pointgroup_ops"]
 missing = []
 for pkg in pkgs:
     try:
@@ -21,13 +25,14 @@ PY
 )"
 
   if [ -n "$MISSING" ]; then
-    python -m pip install --no-cache-dir --no-build-isolation \
-      /app/libs/pointops \
-      /app/libs/pointops2 \
-      /app/libs/pointgroup_ops
+    echo "Installing missing packages at runtime: $MISSING"
+    export MAX_JOBS=$(nproc)
+    [ -d /app/libs/pointops ] && pip install --no-cache-dir -e /app/libs/pointops
+    [ -d /app/libs/pointgroup_ops ] && pip install --no-cache-dir -e /app/libs/pointgroup_ops
   fi
 fi
 
+# CUDA sanity checks
 python - <<'PY'
 import importlib
 import os
@@ -43,7 +48,7 @@ try:
     import torch
 except Exception as exc:
     raise SystemExit(
-        "Torch import failed; this runtime expects the CUDA 12.4 wheels baked into the image.\n"
+        "Torch import failed; this runtime expects the CUDA 12.4 wheels in the conda environment.\n"
         f"Original error: {exc}"
     )
 
@@ -51,10 +56,10 @@ cuda_version = getattr(torch.version, "cuda", None)
 if cuda_version != EXPECTED_CUDA:
     raise SystemExit(
         f"CUDA runtime mismatch: expected {EXPECTED_CUDA}, but torch reports {cuda_version!r}.\n"
-        "Ensure the container is built from the CUDA 12.4 base image."
+        "Ensure the container is built from the CUDA 12.4 base image and conda environment."
     )
 
-mods = ["cumm", "spconv.pytorch", "pointops._C", "pointops2_cuda", "pointgroup_ops_cuda"]
+mods = ["cumm", "spconv.pytorch", "pointops._C", "pointgroup_ops_cuda"]
 failures = []
 for mod in mods:
     try:
@@ -67,7 +72,10 @@ if failures:
         "CUDA extension import check failed:\n" + "\n".join(failures)
     )
 
-print(f"CUDA runtime check passed (version {cuda_version}).")
+print(f"✓ CUDA runtime check passed (version {cuda_version})")
+print(f"✓ PyTorch version: {torch.__version__}")
+print(f"✓ All CUDA extensions loaded successfully")
 PY
 
+# Start the application
 exec python server.py
