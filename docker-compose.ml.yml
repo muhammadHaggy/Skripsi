@@ -1,4 +1,4 @@
-version: "2.2"
+version: "2.3"
 
 services:
   ml_service:
@@ -14,6 +14,8 @@ services:
       PYTHON_PATH: python
       TV_CUDA_INCLUDE_DIRS: /usr/local/lib/python3.10/dist-packages/cumm/include
       CUMM_INCLUDE_DIRS: /usr/local/lib/python3.10/dist-packages/cumm/include
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5001/health"]
       interval: 10s

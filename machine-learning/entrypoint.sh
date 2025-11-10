@@ -33,7 +33,7 @@ import importlib
 import os
 import sys
 
-EXPECTED_CUDA = "12.1"
+EXPECTED_CUDA = "12.4"
 
 if os.getenv("SKIP_CUDA_SANITY") == "1":
     print("Skipping CUDA sanity checks (SKIP_CUDA_SANITY=1).")
@@ -43,7 +43,7 @@ try:
     import torch
 except Exception as exc:
     raise SystemExit(
-        "Torch import failed; this runtime expects the CUDA 12.1 wheels baked into the image.\n"
+        "Torch import failed; this runtime expects the CUDA 12.4 wheels baked into the image.\n"
         f"Original error: {exc}"
     )
 
@@ -51,7 +51,7 @@ cuda_version = getattr(torch.version, "cuda", None)
 if cuda_version != EXPECTED_CUDA:
     raise SystemExit(
         f"CUDA runtime mismatch: expected {EXPECTED_CUDA}, but torch reports {cuda_version!r}.\n"
-        "Ensure the container is built from the CUDA 12.1 base image."
+        "Ensure the container is built from the CUDA 12.4 base image."
     )
 
 mods = ["cumm", "spconv.pytorch", "pointops._C", "pointops2_cuda", "pointgroup_ops_cuda"]
