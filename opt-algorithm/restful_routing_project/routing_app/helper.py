@@ -88,9 +88,12 @@ def vincenty_batch_vectorized(origin_coords, destination_coords):
                   lambda u, v: geodesic_distance(u, v))
     return dists
     
+from .airflow_client import trigger_inference, poll_dag_run
+from .minio_client import get_inference_result
+
 def get_distance_runner(bin_cluster_data):
-    distances, times = get_distance_time_matrices(bin_cluster_data)
-    return distances, times  
+    distances, times, emissions = get_distance_time_matrices(bin_cluster_data)
+    return distances, times, emissions
 
 def get_distance_time_matrices(locations, batch_size=10):
     def chunks(lst, n):
@@ -102,6 +105,7 @@ def get_distance_time_matrices(locations, batch_size=10):
     
     distance_matrix = np.zeros((num_locations, num_locations))
     time_matrix = np.zeros((num_locations, num_locations))
+    emission_matrix = np.zeros((num_locations, num_locations))
 
     for i, origin_batch in enumerate(location_batches):
         for j, destination_batch in enumerate(location_batches):
@@ -113,6 +117,37 @@ def get_distance_time_matrices(locations, batch_size=10):
             average_speed = 60
             dists_km = dists / 1000
             times = (dists_km / average_speed) * 3600
+            
+            # Calculate emissions using Airflow/MinIO
+            # Note: This is N^2 and will be slow.
+            emissions = np.zeros(dists.shape)
+            for r in range(len(origin_coords)):
+                for c in range(len(destination_coords)):
+                    origin_str = f"{origin_coords[r][0]},{origin_coords[r][1]}"
+                    dest_str = f"{destination_coords[c][0]},{destination_coords[c][1]}"
+                    
+                    if origin_str == dest_str:
+                        continue
+
+                    print(f"[Emission] Triggering inference for {origin_str} -> {dest_str}")
+                    dag_run_id = trigger_inference(origin_str, dest_str)
+                    
+                    if dag_run_id:
+                        status = poll_dag_run(dag_run_id)
+                        if status == 'success':
+                            result = get_inference_result(dag_run_id)
+                            # Assuming result contains 'emission' key or similar. 
+                            # If structure is unknown, we default to 0 or log error.
+                            # Based on user request, we need to "get the emission total".
+                            # Let's assume result['emission_total'] exists.
+                            if result and 'emission_total' in result:
+                                emissions[r][c] = float(result['emission_total'])
+                            else:
+                                print(f"[Emission] Result missing 'emission_total': {result}")
+                        else:
+                            print(f"[Emission] DAG run failed or timed out: {status}")
+                    else:
+                        print("[Emission] Failed to trigger DAG")
 
             start_row = i * batch_size
             start_col = j * batch_size
@@ -121,8 +156,9 @@ def get_distance_time_matrices(locations, batch_size=10):
             
             distance_matrix[start_row:end_row, start_col:end_col] = dists[:end_row - start_row, :end_col - start_col]
             time_matrix[start_row:end_row, start_col:end_col] = times[:end_row - start_row, :end_col - start_col]
+            emission_matrix[start_row:end_row, start_col:end_col] = emissions[:end_row - start_row, :end_col - start_col]
 
-    return distance_matrix.tolist(), time_matrix.tolist()
+    return distance_matrix.tolist(), time_matrix.tolist(), emission_matrix.tolist()
 
 def validate_distance(locations, distances):
     for i, row in enumerate(distances):

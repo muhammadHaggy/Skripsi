@@ -221,6 +221,8 @@ def priority_optimization(request, format=None):
         df['priority'] = df.apply(calculate_distance_priority, axis=1)
     elif(priority=="load"):
         df['priority'] = df.apply(calculate_load_priority, axis=1)
+    elif(priority=="emission"):
+        df['priority'] = df.apply(calculate_emission_priority, axis=1)
 
     df_positive = df[df['priority'] >= 0].sort_values(by='priority', ascending=False)
     df_negative = df[df['priority'] < 0].sort_values(by='priority', ascending=True)
@@ -242,7 +244,7 @@ def priority_optimization(request, format=None):
 
             if truck.get_current_capacity() > 0:
                 filtered_origin_loc = pd.concat([pd.DataFrame(df_do_origin_location), filtered_loc]).drop_duplicates().reset_index(drop=True)
-                _, times = get_distance_runner(filtered_origin_loc)
+                _, times, emissions = get_distance_runner(filtered_origin_loc)
                 times = [[t / 60.0 for t in row] for row in times]
                 time_windows = list(zip(
                     filtered_origin_loc['open_hour'].apply(lambda x: x.hour * 60 + x.minute),
@@ -253,10 +255,12 @@ def priority_optimization(request, format=None):
                 time_windows[0] = (480,480)
                 services_time[0] = 0
                 data['time_matrix'] = times
+                data['emission_matrix'] = emissions
                 data['time_windows'] = time_windows
                 data['service_times'] = services_time
                 data['num_vehicles'] = 1
                 data['depot'] = 0
+                data['objective_type'] = 'emission' if priority == 'emission' else 'time'
                 result = google_or(data=data)       
                 reachable_locations_index = result['reachable']                
                 actual_reachable_locations_index = []
@@ -391,4 +395,10 @@ def calculate_distance_priority(row):
 
 def calculate_load_priority(row):
     priority_value = 0.9 * row['demand_scaled'] + 0.1 * row['distance_from_origin']
+    return priority_value if row['relative_position'] == '+' else -priority_value
+
+def calculate_emission_priority(row):
+    # Prioritize closer locations (lower distance) to minimize emissions
+    # We invert distance_from_origin because we want smaller distances to have higher priority
+    priority_value = 1.0 * (1.0 - row['distance_from_origin']) 
     return priority_value if row['relative_position'] == '+' else -priority_value

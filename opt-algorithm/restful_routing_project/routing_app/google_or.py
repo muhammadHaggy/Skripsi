@@ -32,7 +32,19 @@ def google_or(data):
         return data['time_matrix'][from_node][to_node] + data['service_times'][from_node]
 
     transit_callback_index = routing.RegisterTransitCallback(time_callback)
-    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+
+    # Define cost function based on objective
+    if data.get('objective_type') == 'emission' and 'emission_matrix' in data:
+        def emission_callback(from_index, to_index):
+            from_node = manager.IndexToNode(from_index)
+            to_node = manager.IndexToNode(to_index)
+            # Multiply by 100 to keep precision as integers (OR-Tools requires integers)
+            return int(data['emission_matrix'][from_node][to_node] * 100)
+        
+        emission_callback_index = routing.RegisterTransitCallback(emission_callback)
+        routing.SetArcCostEvaluatorOfAllVehicles(emission_callback_index)
+    else:
+        routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
 
     time = 'Time'
     routing.AddDimension(
