@@ -70,7 +70,9 @@ services:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
     restart: always
     networks:
-      - tms_net
+      tms_net: {}
+      nginx-manager_customnetwork:
+        ipv4_address: 172.20.0.180
     security_opt:
       - seccomp=unconfined
 
@@ -222,5 +224,3 @@ services:
       - tms_net
     security_opt:
       - seccomp=unconfined
-
-
