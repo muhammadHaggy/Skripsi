@@ -58,7 +58,7 @@ jobs:
         with:
           images: docker.io/${{ vars.DOCKERHUB_USERNAME }}/${{ matrix.image }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
             type=sha
 
       - name: Set up Docker Buildx
