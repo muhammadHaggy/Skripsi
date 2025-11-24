@@ -11,7 +11,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 
 function DoSelectAutomate() {
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const navigate = useNavigate()  
+  const navigate = useNavigate()
   const location = useLocation();
   const { optimizationType } = location.state || {};
 
@@ -21,6 +21,7 @@ function DoSelectAutomate() {
   const [pageSize, setPageSize] = useState(5)
   const [totalPages, setTotalPages] = useState(0)
   const [showLoading, setShowLoading] = useState(true) // Gunakan hanya satu state loading
+  const [loadingMessage, setLoadingMessage] = useState(null)
   const [selectedDO, setSelectedDO] = useState([])
   const [totalData, setTotalData] = useState(0)
   const [dataDO, setDataDO] = useState([])
@@ -46,19 +47,25 @@ function DoSelectAutomate() {
   const handleOtomatisasi = async () => {
     try {
       setShowLoading(true) // Tampilkan loading saat proses otomatisasi
+      if (optimizationType === 'emission') {
+        setLoadingMessage("Menghitung emisi... Mohon tunggu, proses ini mungkin memakan waktu beberapa menit.")
+      } else {
+        setLoadingMessage(null)
+      }
       const response = await axiosAuthInstance.post(
         `priority-opt`,
         {
-          delivery_orders_id: selectedDO,    
-          priority: optimizationType  
+          delivery_orders_id: selectedDO,
+          priority: optimizationType
         },
         {
           headers: {
-            dc_id : dc_id
-          }
+            dc_id: dc_id
+          },
+          timeout: 600000 // 10 minutes timeout
         }
       );
-  
+
       console.log('Pengiriman berhasil dibuat:', response.data);
       localStorage.setItem('responseData', JSON.stringify(response.data));
       navigate('/pengiriman/otomatisasi');
@@ -66,9 +73,10 @@ function DoSelectAutomate() {
       console.error('Gagal membuat pengiriman:', error.response?.data?.message || error.message);
     } finally {
       setShowLoading(false)
+      setLoadingMessage(null)
     }
   };
-  
+
 
   useEffect(() => {
     setDcId(jwtDecode(sessionStorage.getItem('token')).role.dc_id)
@@ -155,7 +163,7 @@ function DoSelectAutomate() {
 
   return (
     <>
-      <Loading visibility={showLoading} />
+      <Loading visibility={showLoading} message={loadingMessage} />
       <div className={`w-full mx-auto space-y-5 mt-4 pt-10 px-10 ${showLoading ? 'hidden' : 'visible'}`}>
         <div className="w-full bg-white border rounded-lg shadow-md">
           <div className="bg-primary-hover text-white px-4 py-3 rounded-t-lg">
@@ -166,13 +174,13 @@ function DoSelectAutomate() {
             <div className="mt-4">
               <p className="font-bold">Tanggal Pengiriman</p>
               <div className="relative w-full cursor-pointer">
-                <DatePicker 
-                  selected={selectedDate} 
-                  onChange={(date) => setSelectedDate(date)} 
-                  dateFormat="dd/MM/yyyy" 
-                  dropdownMode="select" 
-                  className="border rounded-lg p-2 w-full pl-10 cursor-pointer" 
-                  placeholderText="Pilih tanggal" 
+                <DatePicker
+                  selected={selectedDate}
+                  onChange={(date) => setSelectedDate(date)}
+                  dateFormat="dd/MM/yyyy"
+                  dropdownMode="select"
+                  className="border rounded-lg p-2 w-full pl-10 cursor-pointer"
+                  placeholderText="Pilih tanggal"
                 />
                 <FaCalendarAlt className="absolute top-2/4 left-3 transform -translate-y-2/4 text-gray-700 pointer-events-none" />
               </div>
@@ -185,26 +193,26 @@ function DoSelectAutomate() {
           </div>
           <div className="px-4 py-1">
             <p className="mb-3 mt-3">Pilih DO yang ingin dimasukkan ke dalam pengirman pada tanggal di atas.</p>
-            
-            <BaseTablePaginationShipment 
-              columns={columns} 
-              data={dataDO} 
-              currentPage={currentPage} 
-              totalPages={totalPages} 
-              pageSize={pageSize} 
-              onPageChange={handlePageChange} 
-              onPageSizeChange={handlePageSizeChange} 
-              loading={showLoading} 
-              judul={'Daftar Delivery Order'} 
-              setStartDate={setSelectedStartDate} 
-              setEndDate={setSelectedEndDate} 
-              startDate={selectedStartDate} 
-              endDate={selectedEndDate} 
-              handleSelectAllChange={handleSelectAllChange} 
-              handleCheckboxChange={handleCheckboxChange} 
-              selectedData={selectedDO} 
-              totalData={totalData} 
-              isAllChecked={isAllChecked} 
+
+            <BaseTablePaginationShipment
+              columns={columns}
+              data={dataDO}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              loading={showLoading}
+              judul={'Daftar Delivery Order'}
+              setStartDate={setSelectedStartDate}
+              setEndDate={setSelectedEndDate}
+              startDate={selectedStartDate}
+              endDate={selectedEndDate}
+              handleSelectAllChange={handleSelectAllChange}
+              handleCheckboxChange={handleCheckboxChange}
+              selectedData={selectedDO}
+              totalData={totalData}
+              isAllChecked={isAllChecked}
             />
           </div>
         </div>

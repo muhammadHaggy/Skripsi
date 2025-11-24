@@ -7,6 +7,7 @@ networks:
 volumes:
   db_data:
   storage_uploads:
+  pgadmin_data:
 
 services:
   # API Gateway stack
@@ -32,6 +33,20 @@ services:
       - tms_net
     security_opt:
       - seccomp=unconfined
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    restart: always
+    ports:
+      - "15050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-root}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - tms_net
 
 
   rabbitmq:

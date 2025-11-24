@@ -49,6 +49,31 @@ const restrictedRouter = express.Router();
 restrictedRouter.use(jwtMiddleware);
 
 //user
+/**
+ * @swagger
+ * /api/v1/user:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               roleId:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: User created
+ */
 restrictedRouter.post("/api/v1/user", userController.registerUserController);
 restrictedRouter.put("/api/v1/user", userController.updateUserController);
 restrictedRouter.post(
@@ -75,6 +100,18 @@ restrictedRouter.get(
 );
 
 //delivery-order
+/**
+ * @swagger
+ * /api/v1/administrator/delivery-orders:
+ *   get:
+ *     summary: Get all delivery orders (Admin)
+ *     tags: [Delivery Order]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of delivery orders
+ */
 restrictedRouter.get(
   "/api/v1/administrator/delivery-orders",
   getAllDOAdminController
@@ -111,6 +148,18 @@ restrictedRouter.get("/api/v1/products", getAllProductController);
 restrictedRouter.get("/api/v1/product-lines", getAllProductLineController);
 
 //shipment
+/**
+ * @swagger
+ * /api/v1/administrator/shipments:
+ *   get:
+ *     summary: Get all shipments (Admin)
+ *     tags: [Shipment]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of shipments
+ */
 restrictedRouter.get(
   "/api/v1/administrator/shipments",
   getAllShipmentAdminController
@@ -134,7 +183,7 @@ restrictedRouter.patch(
   simpanShipmentStatusController
 );
 restrictedRouter.post("/api/v1/priority-opt", priorityOptimizationController
-  
+
 );
 restrictedRouter.post(
   "/api/v1/shipment/:id/update-truck-type",
