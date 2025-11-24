@@ -89,13 +89,61 @@ publicRouter.post(
  * @swagger
  * /api/v1/box/dimension-result:
  *   post:
- *     summary: Submit box dimension result
+ *     summary: Submit box dimension result from ML service
+ *     description: Endpoint for ML service to return calculated box dimensions
  *     tags: [Box]
  *     security:
  *       - apiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - boxID
+ *               - length
+ *               - width
+ *               - height
+ *               - volume
+ *             properties:
+ *               boxID:
+ *                 type: string
+ *                 description: Box identifier
+ *               length:
+ *                 type: number
+ *                 description: Box length in cm
+ *               width:
+ *                 type: number
+ *                 description: Box width in cm
+ *               height:
+ *                 type: number
+ *                 description: Box height in cm
+ *               volume:
+ *                 type: number
+ *                 description: Box volume in cubic cm
  *     responses:
  *       200:
- *         description: Success
+ *         description: Dimension result saved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 status:
+ *                   type: integer
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                 error:
+ *                   type: null
+ *       400:
+ *         description: Incomplete payload
+ *       401:
+ *         description: Invalid API key
  */
 publicRouter.post(
   "/api/v1/box/dimension-result",
