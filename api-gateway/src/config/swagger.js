@@ -10,7 +10,7 @@ const options = {
         },
         servers: [
             {
-                url: "http://localhost:3000",
+                url: process.env.REACT_APP_BACKEND_URL || "http://85.209.163.202:28080",
                 description: "Development server",
             },
         ],
