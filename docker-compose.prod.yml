@@ -156,6 +156,7 @@ services:
       - ML_API_URL=${ML_API_URL}
       - RABBITMQ_API_KEY=${RABBITMQ_API_KEY}
       - STORAGE_API_KEY=${STORAGE_API_KEY}
+      - MOCK_ML_MODE=${MOCK_ML_MODE}
     depends_on:
       api_gateway:
         condition: service_started
