@@ -69,7 +69,15 @@ def send_to_backend(box_id, length, width, height, volume):
     except Exception as e:
         logger.error(f"Error sending POST to backend: {e}")
 
+
+
 def call_ml_service(box_id, dgx_id, pc_url):
+    if os.getenv("MOCK_ML_MODE", "false").lower() == "true":
+        logger.info(f"Mock mode enabled. Returning mock dimensions for box_id={box_id}")
+        # Default mock values or parse from env if needed in future
+        # Length, Width, Height, Volume
+        return (10.0, 10.0, 10.0, 1000.0)
+
     try:
         payload = {
             "box_id": str(box_id),
