@@ -7,7 +7,7 @@ networks:
 volumes:
   db_data:
   storage_uploads:
-  pgadmin_data:
+  cloudbeaver_data:
 
 services:
   # API Gateway stack
@@ -34,17 +34,14 @@ services:
     security_opt:
       - seccomp=unconfined
 
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: pgadmin
-    restart: always
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:latest
+    container_name: cloudbeaver
+    restart: unless-stopped
     ports:
-      - "15050:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@admin.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-root}
+      - "15050:8978"
     volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      - cloudbeaver_data:/opt/cloudbeaver/workspace
     networks:
       - tms_net
 

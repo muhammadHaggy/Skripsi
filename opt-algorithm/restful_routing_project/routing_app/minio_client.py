@@ -2,6 +2,9 @@ from minio import Minio
 import json
 import os
 import io
+from .logger_utils import get_logger
+
+logger = get_logger(__name__)
 
 # Configuration
 MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
@@ -23,6 +26,7 @@ def get_inference_result(dag_run_id):
     Retrieves the inference result from MinIO based on the dag_run_id.
     Path: s3://runs/{dag_run_id}/emissions.json
     """
+    logger.info(f"[get_inference_result] Retrieving result for dag_run_id: {dag_run_id}")
     client = get_client()
     # Bucket is defined in MINIO_BUCKET (default 'runs')
     object_name = f"{dag_run_id}/emissions.json"
@@ -32,7 +36,8 @@ def get_inference_result(dag_run_id):
         data = json.load(response)
         response.close()
         response.release_conn()
+        logger.info(f"[get_inference_result] Successfully retrieved result from {MINIO_BUCKET}/{object_name}")
         return data
     except Exception as e:
-        print(f"[MinIO] Failed to get object {MINIO_BUCKET}/{object_name}: {e}")
+        logger.error(f"[get_inference_result] Failed to get object {MINIO_BUCKET}/{object_name}: {e}")
         return None

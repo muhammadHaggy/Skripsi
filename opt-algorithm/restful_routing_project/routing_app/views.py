@@ -11,6 +11,11 @@ import pandas as pd
 import collections
 collections.Iterable = collections.abc.Iterable
 import numpy as np
+import time as time_module
+from .logger_utils import get_logger, log_step, log_api_request, log_api_response, log_data_processing
+
+# Initialize logger for this module
+logger = get_logger(__name__)
 
 def get_delivery_orders_dataframe(delivery_orders):
     df_delivery_orders = {
@@ -137,35 +142,33 @@ def testing(request, format=None):
 
 @api_view(["POST"])
 def priority_optimization(request, format=None):
+    start_time = time_module.time()
+    
+    # Log API request
+    log_api_request(logger, "POST", "/api/priority")
+    
     data = json.loads(request.body.decode('utf-8'))
+    
+    # Log input summary
+    input_summary = {
+        "trucks_count": len(data.get('trucks', [])) if isinstance(data.get('trucks'), list) else 0,
+        "dest_locations_count": len(data.get('dest_location', [])) if isinstance(data.get('dest_location'), list) else 0,
+        "origin_locations_count": len(data.get('ori_location', [])) if isinstance(data.get('ori_location'), list) else 0,
+        "delivery_orders_count": len(data.get('delivery_orders', [])) if isinstance(data.get('delivery_orders'), list) else 0,
+        "priority_mode": data.get('priority'),
+    }
+    log_step(logger, "Received optimization request", input_summary)
+    
     try:
-        print("[dbg] /api/priority payload summary:", json.dumps({
-            "trucks_len": len(data.get('trucks', [])) if isinstance(data.get('trucks'), list) else 'NA',
-            "dest_location_len": len(data.get('dest_location', [])) if isinstance(data.get('dest_location'), list) else 'NA',
-            "ori_location_len": len(data.get('ori_location', [])) if isinstance(data.get('ori_location'), list) else 'NA',
-            "delivery_orders_len": len(data.get('delivery_orders', [])) if isinstance(data.get('delivery_orders'), list) else 'NA',
-            "priority": data.get('priority'),
-        }, default=str))
         if isinstance(data.get('trucks'), list) and len(data['trucks']) > 0:
             t0 = data['trucks'][0]
-            print("[dbg] first truck head:", json.dumps({
-                "id": t0.get('id'),
-                "type_id": t0.get('type_id'),
-                "dc_id": t0.get('dc_id'),
-                "truck_type": t0.get('truck_type'),
-                "max_individual_capacity_volume": t0.get('max_individual_capacity_volume'),
-                "current_volume": t0.get('current_volume'),
-            }, default=str))
+            logger.info(f"[INPUT] Sample truck: id={t0.get('id')}, type_id={t0.get('type_id')}, max_capacity={t0.get('max_individual_capacity_volume')}")
+        
         if isinstance(data.get('delivery_orders'), list) and len(data['delivery_orders']) > 0:
             d0 = data['delivery_orders'][0]
-            print("[dbg] first DO head:", json.dumps({
-                "id": d0.get('id'),
-                "delivery_order_num": d0.get('delivery_order_num'),
-                "loc_dest": d0.get('loc_dest'),
-                "ProductLine_len": len(d0.get('ProductLine', [])) if isinstance(d0.get('ProductLine'), list) else 'NA',
-            }, default=str))
+            logger.info(f"[INPUT] Sample delivery order: id={d0.get('id')}, DO_num={d0.get('delivery_order_num')}, products={len(d0.get('ProductLine', []))}")
     except Exception as e:
-        print("[dbg] error while printing payload summary:", str(e))
+        logger.warning(f"Error logging input samples: {e}")
     trucks = data['trucks']
     dest_location = data['dest_location']
     origin_location = data['ori_location']
@@ -175,6 +178,7 @@ def priority_optimization(request, format=None):
     delivery_orders = data["delivery_orders"]
     priority = data["priority"]
 
+    log_step(logger, "Calculating demand for delivery orders")
     for i in range(len(delivery_orders)):
         volumes = 0
         quantities = 0
@@ -186,28 +190,31 @@ def priority_optimization(request, format=None):
         delivery_orders[i]["demand"] = demand
         delivery_orders[i]["volume"] = volumes   
         delivery_orders[i]["quantity"] = quantities
-    print("processing.....")
+    
+    logger.info(f"[PROCESSING] Total demand calculated for {len(delivery_orders)} delivery orders")
+    
+    log_step(logger, "Building truck models and sorting by capacity")
     trucks_model = get_trucks_model_sorted(trucks)
+    logger.info(f"[DATA] Created {len(trucks_model)} truck models")
+    
     try:
-        print("[dbg] built trucks_model:", len(trucks_model),
-              "first:", {
-                  "id": getattr(trucks_model[0], 'id', None) if len(trucks_model) else None,
-                  "max": str(getattr(trucks_model[0], 'max_individual_capacity_volume', None)) if len(trucks_model) else None,
-              })
+        if len(trucks_model) > 0:
+            logger.info(f"[DATA] Largest truck: id={trucks_model[0].id}, max_capacity={trucks_model[0].max_individual_capacity_volume}")
     except Exception as e:
-        print("[dbg] error printing trucks_model:", str(e))
+        logger.warning(f"Error logging truck model details: {e}")
+    
+    log_step(logger, "Creating dataframes for delivery orders and locations")
     df_delivery_orders = get_delivery_orders__with_demand_dataframe(delivery_orders)
     df_do_dest_location = get_location_dataframe(dest_location)
     df_do_origin_location = get_location_dataframe(origin_location[0])
-    try:
-        print("[dbg] df shapes:", {
-            "df_delivery_orders": df_delivery_orders.shape,
-            "df_do_dest_location": df_do_dest_location.shape,
-            "df_do_origin_location": df_do_origin_location.shape,
-        })
-    except Exception as e:
-        print("[dbg] error printing df shapes:", str(e))
+    
+    log_data_processing(logger, "Dataframe creation", 
+        {"delivery_orders": len(delivery_orders), "locations": len(dest_location)},
+        {"df_delivery_orders_shape": df_delivery_orders.shape, 
+         "df_dest_location_shape": df_do_dest_location.shape,
+         "df_origin_location_shape": df_do_origin_location.shape})
 
+    log_step(logger, "Merging dataframes and calculating distances")
     df = pd.merge(df_delivery_orders, df_do_dest_location, on='loc_dest_id', how='left')  
     df['distance_from_origin'] = df.apply(lambda row: geodesic_distance((row['latitude'], row['longitude']), warehouse), axis=1)
     df['relative_position'] = df['longitude'].apply(lambda x: relative_position(x, warehouse[1]))
@@ -215,6 +222,7 @@ def priority_optimization(request, format=None):
     min_max_scaler = MinMaxScaler()
     df[['distance_from_origin', 'demand_scaled']] = min_max_scaler.fit_transform(df[['distance_from_origin', 'demand']])   
 
+    log_step(logger, f"Calculating priority using mode: {priority}")
     if(priority=="balance"):
         df['priority'] = df.apply(calculate_balance_priority, axis=1)
     elif(priority=="distance"):
@@ -228,23 +236,39 @@ def priority_optimization(request, format=None):
     df_negative = df[df['priority'] < 0].sort_values(by='priority', ascending=True)
 
     df_sorted = pd.concat([df_positive, df_negative])
+    logger.info(f"[DATA] Sorted {len(df_sorted)} orders by priority ({len(df_positive)} positive, {len(df_negative)} negative)")
 
+    log_step(logger, "Starting truck assignment and route optimization")
     shipment = []
     unassigned_orders = []
+    truck_counter = 0
+    
     for truck in trucks_model:
+        truck_counter += 1
+        logger.info(f"[TRUCK {truck_counter}/{len(trucks_model)}] Processing truck_id={truck.get_id()}, capacity={truck.get_max_capacity()}")
+        
         if len(df_sorted[df_sorted['truck_id'] == -1]) > 0:
+            assigned_count = 0
             for _, order_location in df_sorted[df_sorted['truck_id'] == -1].iterrows():
                 order_total_volume = float(order_location['demand'])
                 if order_total_volume <= truck.get_avaiable_capacity():
                     df_sorted.loc[(df_sorted['id'] == order_location['id']), 'truck_id'] = truck.get_id()
                     truck.add_new_order(order_total_volume)
+                    assigned_count += 1
+            
+            logger.info(f"[TRUCK {truck_counter}] Assigned {assigned_count} orders, current_capacity={truck.get_current_capacity()}/{truck.get_max_capacity()}")
                     
             unique_loc_dest_ids = df_sorted[df_sorted['truck_id'] == truck.get_id()]['loc_dest_id'].unique()
             filtered_loc = df_sorted[df_sorted['loc_dest_id'].isin(unique_loc_dest_ids)]   
 
             if truck.get_current_capacity() > 0:
+                logger.info(f"[TRUCK {truck_counter}] Computing routes for {len(unique_loc_dest_ids)} unique locations")
+                
                 filtered_origin_loc = pd.concat([pd.DataFrame(df_do_origin_location), filtered_loc]).drop_duplicates().reset_index(drop=True)
+                
+                log_step(logger, f"[TRUCK {truck_counter}] Calculating distance/time/emission matrices")
                 _, times, emissions = get_distance_runner(filtered_origin_loc)
+                
                 times = [[t / 60.0 for t in row] for row in times]
                 time_windows = list(zip(
                     filtered_origin_loc['open_hour'].apply(lambda x: x.hour * 60 + x.minute),
@@ -261,7 +285,15 @@ def priority_optimization(request, format=None):
                 data['num_vehicles'] = 1
                 data['depot'] = 0
                 data['objective_type'] = 'emission' if priority == 'emission' else 'time'
-                result = google_or(data=data)       
+                
+                log_step(logger, f"[TRUCK {truck_counter}] Running Google OR-Tools optimization")
+                result = google_or(data=data)
+                
+                if isinstance(result, dict):
+                    logger.info(f"[TRUCK {truck_counter}] OR-Tools result: {len(result.get('reachable', []))} reachable, {len(result.get('unreachable', []))} unreachable")
+                else:
+                    logger.warning(f"[TRUCK {truck_counter}] OR-Tools returned: {result}")
+                       
                 reachable_locations_index = result['reachable']                
                 actual_reachable_locations_index = []
                 actual_unreachable_locations_index = []
@@ -278,6 +310,7 @@ def priority_optimization(request, format=None):
                 total_time_with_waiting = 0
                 total_distance = 0
                 
+                log_step(logger, f"[TRUCK {truck_counter}] Validating routes and calculating ETAs")
                 for index , loc_index in enumerate(reachable_locations_index):
                     loc = filtered_origin_loc.iloc[loc_index]
                     prev_loc = filtered_origin_loc.iloc[prev_loc_index]
@@ -293,7 +326,7 @@ def priority_optimization(request, format=None):
                     eta = (prev_eta + timedelta(minutes=estimated_travel_time)).time()
                     if(eta <loc['close_hour']):
                         estimated_travel_distance = prev_to_loc[0]['legs'][0]['distance']['value']
-               
+                
                         actual_reachable_locations_index.append(loc_index)
                         actual_reachable_locations_id.append(loc['loc_dest_id'])
                         loc_dest_info.append({
@@ -309,7 +342,7 @@ def priority_optimization(request, format=None):
                             waiting_duration = open_hour_dt - eta_dt
                             waiting_duration_minutes = waiting_duration.total_seconds() / 60.0
                             total_time_with_waiting += (waiting_duration_minutes + estimated_travel_time)
-                            print(f"Arrived early at {loc['address']}. Waiting for {waiting_duration_minutes} until it opens at {loc['open_hour'].strftime('%H:%M:%S')}")
+                            logger.debug(f"[TRUCK {truck_counter}] Location {loc['loc_dest_id']}: arrived early, waiting {waiting_duration_minutes:.1f} min")
 
                             eta_with_waiting = prev_eta + timedelta(minutes=(waiting_duration_minutes + estimated_travel_time))
                             prev_eta = eta_with_waiting
@@ -322,8 +355,12 @@ def priority_optimization(request, format=None):
                     else:
                         actual_unreachable_locations_index.append(loc_index)
                         actual_unreachable_locations_id.append(loc['loc_dest_id'])
+                        logger.warning(f"[TRUCK {truck_counter}] Location {loc['loc_dest_id']} unreachable: ETA {eta} after close_hour {loc['close_hour']}")
+                
                 actual_reachable_locations = filtered_origin_loc.iloc[actual_reachable_locations_index]    
                 actual_unreachable_locations = filtered_origin_loc.iloc[actual_unreachable_locations_index]
+                
+                # Remove unreachable orders from truck
                 for _ , unreachable_order in df_sorted[(df_sorted['loc_dest_id'].isin(actual_unreachable_locations_id)) & (df_sorted['truck_id'] == truck.get_id())].iterrows():
                     order_total_volume = float(unreachable_order['demand'])
                     truck.drop_order(order_total_volume)
@@ -334,6 +371,7 @@ def priority_optimization(request, format=None):
                     'truck_id'
                 ] = -1
 
+                log_step(logger, f"[TRUCK {truck_counter}] Fetching route coordinates")
                 list_of_location_routes = []
                 all_cords = []
                 prev_locaction = filtered_origin_loc.iloc[0]
@@ -349,8 +387,8 @@ def priority_optimization(request, format=None):
                     (df_sorted['truck_id'] == truck.get_id()) &
                     (df_sorted['loc_dest_id'].isin(reachable_loc_dest_ids))
                 ]
-                shipment.append({
-
+                
+                shipment_entry = {
                         "id_truck": truck.get_id(),
                         "delivery_orders": [{"delivery_order_id": do_id} for do_id in valid_dos["id"].tolist()],
                         "location_routes": list_of_location_routes,  
@@ -361,25 +399,38 @@ def priority_optimization(request, format=None):
                         "additional_info" : loc_dest_info,
                         "current_capacity": truck.get_current_capacity(),
                         "max_capacity": truck.get_max_capacity(),   
-                })
+                }
+                shipment.append(shipment_entry)
+                
+                logger.info(f"[TRUCK {truck_counter}] COMPLETED - {len(valid_dos)} orders, {len(list_of_location_routes)} locations, distance={total_distance}m, time={total_time:.1f}min")
                
-                print(f"*****************The end of truck {truck}*****************")
     
         all_trucks_full = all(truck.get_avaiable_capacity() == 0 for truck in trucks_model)
         if all_trucks_full: 
-            print("All trucks are used. Moving remaining orders to unassigned_delivery_orders.")
+            logger.warning("All trucks are full. Remaining orders will be unassigned.")
             unassigned_orders.extend(
                 [{"delivery_order_id": row['id']} for _, row in df_sorted.iterrows()]
             )
             continue 
+    
     unassigned_orders.extend([{'delivery_order_id': row['id']} for _, row in df_sorted[df_sorted['truck_id'] == -1].iterrows()])
 
     if unassigned_orders:
+        logger.warning(f"[RESULT] {len(unassigned_orders)} orders could not be assigned to any truck")
         shipment.append({
             "id_truck": -1,
             "delivery_orders": unassigned_orders
     })
 
+    # Log final response
+    duration = time_module.time() - start_time
+    response_summary = {
+        "shipments_count": len([s for s in shipment if s.get('id_truck') != -1]),
+        "unassigned_orders_count": len(unassigned_orders),
+        "total_trucks_used": len([s for s in shipment if s.get('id_truck') != -1]),
+    }
+    log_api_response(logger, "/api/priority", 200, duration, response_summary)
+    
     return Response(shipment, 200)
 
 def relative_position(longitude, reference_longitude):
