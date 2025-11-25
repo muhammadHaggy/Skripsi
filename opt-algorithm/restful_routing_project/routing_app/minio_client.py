@@ -32,7 +32,7 @@ def get_inference_result(dag_run_id):
     object_name = f"{dag_run_id}/emissions.json"
     
     try:
-        response = client.get_object(MINIO_BUCKET, object_name)
+        response = client.get_object(bucket_name=MINIO_BUCKET, object_name=object_name)
         data = json.load(response)
         response.close()
         response.release_conn()
