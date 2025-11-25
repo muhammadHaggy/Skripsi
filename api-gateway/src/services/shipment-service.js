@@ -13,6 +13,7 @@ import {
   getDeliveryOrdersByShipmentId,
   updateStatusDO,
 } from "../repositories/delivery-order-repository.js";
+import { prisma } from "../config/database.js";
 import axios from "axios";
 
 const getAllShipmentAdminService = async (skip, limit) => {
