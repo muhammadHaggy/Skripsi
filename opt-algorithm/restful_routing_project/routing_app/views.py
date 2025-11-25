@@ -326,15 +326,20 @@ def priority_optimization(request, format=None):
                 total_distance = 0
                 
                 log_step(logger, f"[TRUCK {truck_counter}] Validating routes and calculating ETAs")
+                logger.info(f"[TRUCK {truck_counter}] reachable_locations_index from OR-Tools: {reachable_locations_index}")
+                
                 for index , loc_index in enumerate(reachable_locations_index):
                     loc = filtered_origin_loc.iloc[loc_index]
                     prev_loc = filtered_origin_loc.iloc[prev_loc_index]
                     loc_lon_lat = (loc['latitude'], loc['longitude'])
                     prev_loc_lon_lat = (prev_loc['latitude'], prev_loc['longitude'])
                     
+                    logger.debug(f"[TRUCK {truck_counter}] Processing loc_index={loc_index}, loc_dest_id={loc.get('loc_dest_id', 'N/A')}")
+                    
                     prev_to_loc = get_directions(prev_loc_lon_lat, loc_lon_lat)
                     if loc_index == 0:
                         # Skip depot (origin), don't process it as a delivery location
+                        logger.debug(f"[TRUCK {truck_counter}] Skipping depot (loc_index=0)")
                         continue
                     
                     estimated_travel_time = ((prev_to_loc[0]['legs'][0]['duration']['value']) / 60 ) + prev_loc['service_time'] 
@@ -352,6 +357,8 @@ def priority_optimization(request, format=None):
                             "travel_time" :estimated_travel_time,
                             "travel_distance" :estimated_travel_distance
                         })
+                        logger.info(f"[TRUCK {truck_counter}] Added to loc_dest_info: loc_dest_id={loc['loc_dest_id']}, eta={eta.strftime('%H:%M:%S')}")
+                        
                         if (eta < loc['open_hour']):
                             open_hour_dt = datetime.combine(arbitrary_date, loc['open_hour'])
                             eta_dt = datetime.combine(arbitrary_date, eta)
@@ -372,6 +379,8 @@ def priority_optimization(request, format=None):
                         actual_unreachable_locations_index.append(loc_index)
                         actual_unreachable_locations_id.append(loc['loc_dest_id'])
                         logger.warning(f"[TRUCK {truck_counter}] Location {loc['loc_dest_id']} unreachable: ETA {eta} after close_hour {loc['close_hour']}")
+                
+                logger.info(f"[TRUCK {truck_counter}] loc_dest_info built with {len(loc_dest_info)} entries: {loc_dest_info}")
                 
                 actual_reachable_locations = filtered_origin_loc.iloc[actual_reachable_locations_index]    
                 actual_unreachable_locations = filtered_origin_loc.iloc[actual_unreachable_locations_index]
@@ -400,21 +409,30 @@ def priority_optimization(request, format=None):
 
 
                 reachable_loc_dest_ids = set(actual_reachable_locations_id)
+                logger.info(f"[TRUCK {truck_counter}] reachable_loc_dest_ids: {reachable_loc_dest_ids}")
+                
                 valid_dos = df_sorted[
                     (df_sorted['truck_id'] == truck.get_id()) &
                     (df_sorted['loc_dest_id'].isin(reachable_loc_dest_ids))
                 ]
                 
+                logger.info(f"[TRUCK {truck_counter}] valid_dos count: {len(valid_dos)}, ids: {valid_dos['id'].tolist() if len(valid_dos) > 0 else []}")
+                
                 # Create a mapping of loc_dest_id to ETA from loc_dest_info
                 loc_dest_eta_map = {info['loc_dest_id']: info['eta'] for info in loc_dest_info}
+                logger.info(f"[TRUCK {truck_counter}] loc_dest_eta_map: {loc_dest_eta_map}")
                 
                 # Build delivery_orders with ETA included
                 delivery_orders_with_eta = []
                 for do_id, loc_dest_id in zip(valid_dos["id"].tolist(), valid_dos["loc_dest_id"].tolist()):
+                    eta_value = loc_dest_eta_map.get(loc_dest_id, None)
                     delivery_orders_with_eta.append({
                         "delivery_order_id": do_id,
-                        "eta": loc_dest_eta_map.get(loc_dest_id, None)
+                        "eta": eta_value
                     })
+                    logger.info(f"[TRUCK {truck_counter}] Added delivery_order: do_id={do_id}, loc_dest_id={loc_dest_id}, eta={eta_value}")
+                
+                logger.info(f"[TRUCK {truck_counter}] Final delivery_orders_with_eta count: {len(delivery_orders_with_eta)}")
                 
                 shipment_entry = {
                         "id_truck": truck.get_id(),
