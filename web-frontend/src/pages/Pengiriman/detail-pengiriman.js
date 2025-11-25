@@ -229,7 +229,9 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
                             </div>
                           )}
                           <div className="text-sm mb-1">
-                            <span className="font-normal text-primary">{route.open_hour} - {route.close_hour}</span>
+                            <span className="font-normal text-primary">
+                              {route.open_hour ? route.open_hour.substring(11, 16) : 'N/A'} - {route.close_hour ? route.close_hour.substring(11, 16) : 'N/A'}
+                            </span>
                           </div>
                           <p className="text-sm text-gray-600">{route.address}</p>
                         </div>
