@@ -95,14 +95,14 @@ def vincenty_batch_vectorized(origin_coords, destination_coords):
 from .airflow_client import trigger_inference, poll_dag_run
 from .minio_client import get_inference_result
 
-def get_distance_runner(bin_cluster_data):
-    logger.info(f"[get_distance_runner] START - Processing {len(bin_cluster_data)} locations")
-    distances, times, emissions = get_distance_time_matrices(bin_cluster_data)
+def get_distance_runner(bin_cluster_data, priority='time'):
+    logger.info(f"[get_distance_runner] START - Processing {len(bin_cluster_data)} locations, priority={priority}")
+    distances, times, emissions = get_distance_time_matrices(bin_cluster_data, priority=priority)
     logger.info(f"[get_distance_runner] COMPLETE - Generated matrices: {len(distances)}x{len(distances[0]) if distances else 0}")
     return distances, times, emissions
 
-def get_distance_time_matrices(locations, batch_size=10):
-    logger.info(f"[get_distance_time_matrices] START - {len(locations)} locations, batch_size={batch_size}")
+def get_distance_time_matrices(locations, batch_size=10, priority='time'):
+    logger.info(f"[get_distance_time_matrices] START - {len(locations)} locations, batch_size={batch_size}, priority={priority}")
     
     def chunks(lst, n):
         for i in range(0, len(lst), n):
@@ -127,47 +127,51 @@ def get_distance_time_matrices(locations, batch_size=10):
             dists_km = dists / 1000
             times = (dists_km / average_speed) * 3600
             
-            # Calculate emissions using Airflow/MinIO
-            # Note: This is N^2 and will be slow.
+            # Calculate emissions using Airflow/MinIO ONLY if priority is 'emission'
             emissions = np.zeros(dists.shape)
-            for r in range(len(origin_coords)):
-                for c in range(len(destination_coords)):
-                    origin_str = f"{origin_coords[r][0]},{origin_coords[r][1]}"
-                    dest_str = f"{destination_coords[c][0]},{destination_coords[c][1]}"
-                    
-                    if origin_str == dest_str:
-                        continue
+            if priority == 'emission':
+                logger.info(f"[Emission] Priority is 'emission', calculating emission matrix via Airflow")
+                # Note: This is N^2 and will be slow.
+                for r in range(len(origin_coords)):
+                    for c in range(len(destination_coords)):
+                        origin_str = f"{origin_coords[r][0]},{origin_coords[r][1]}"
+                        dest_str = f"{destination_coords[c][0]},{destination_coords[c][1]}"
+                        
+                        if origin_str == dest_str:
+                            continue
 
-                    log_external_call(logger, "Airflow", "trigger_inference", {"origin": origin_str, "dest": dest_str})
-                    dag_run_id = trigger_inference(origin_str, dest_str)
-                    
-                    if dag_run_id:
-                        logger.info(f"[Emission] DAG run triggered: {dag_run_id}")
-                        status = poll_dag_run(dag_run_id)
-                        if status == 'success':
-                            result = get_inference_result(dag_run_id)
-                            # New JSON structure:
-                            # {
-                            #   "Emission Rate": {
-                            #     "CO(g)": ..., "HC(g)": ..., "NOx(g)": ...,
-                            #     "PM2.5_Ele(g)": ..., "PM2.5_Org(g)": ...,
-                            #     "Energy(KJ)": ..., "CO2(g)": ..., "Fuel(g)": ..., "TT(s)": ...
-                            #   },
-                            #   "Emission Factor": { ... }
-                            # }
-                            if result and 'Emission Rate' in result:
-                                emission_rate = result['Emission Rate']
-                                # Use CO2 as the primary emission metric (in grams)
-                                # You can also create a weighted sum of multiple pollutants if needed
-                                co2_emission = float(emission_rate.get('CO2(g)', 0))
-                                emissions[r][c] = co2_emission
-                                logger.info(f"[Emission] Retrieved CO2 emission: {co2_emission}g for {origin_str} -> {dest_str}")
+                        log_external_call(logger, "Airflow", "trigger_inference", {"origin": origin_str, "dest": dest_str})
+                        dag_run_id = trigger_inference(origin_str, dest_str)
+                        
+                        if dag_run_id:
+                            logger.info(f"[Emission] DAG run triggered: {dag_run_id}")
+                            status = poll_dag_run(dag_run_id)
+                            if status == 'success':
+                                result = get_inference_result(dag_run_id)
+                                # New JSON structure:
+                                # {
+                                #   "Emission Rate": {
+                                #     "CO(g)": ..., "HC(g)": ..., "NOx(g)": ...,
+                                #     "PM2.5_Ele(g)": ..., "PM2.5_Org(g)": ...,
+                                #     "Energy(KJ)": ..., "CO2(g)": ..., "Fuel(g)": ..., "TT(s)": ...
+                                #   },
+                                #   "Emission Factor": { ... }
+                                # }
+                                if result and 'Emission Rate' in result:
+                                    emission_rate = result['Emission Rate']
+                                    # Use CO2 as the primary emission metric (in grams)
+                                    # You can also create a weighted sum of multiple pollutants if needed
+                                    co2_emission = float(emission_rate.get('CO2(g)', 0))
+                                    emissions[r][c] = co2_emission
+                                    logger.info(f"[Emission] Retrieved CO2 emission: {co2_emission}g for {origin_str} -> {dest_str}")
+                                else:
+                                    logger.warning(f"[Emission] Result missing 'Emission Rate': {result}")
                             else:
-                                logger.warning(f"[Emission] Result missing 'Emission Rate': {result}")
+                                logger.warning(f"[Emission] DAG run failed or timed out: {status}")
                         else:
-                            logger.warning(f"[Emission] DAG run failed or timed out: {status}")
-                    else:
-                        logger.error("[Emission] Failed to trigger DAG")
+                            logger.error("[Emission] Failed to trigger DAG")
+            else:
+                logger.info(f"[Emission] Priority is '{priority}', skipping emission calculation (using zero matrix)")
 
             start_row = i * batch_size
             start_col = j * batch_size

@@ -282,7 +282,7 @@ def priority_optimization(request, format=None):
                 filtered_origin_loc = pd.concat([pd.DataFrame(df_do_origin_location), filtered_loc]).drop_duplicates().reset_index(drop=True)
                 
                 log_step(logger, f"[TRUCK {truck_counter}] Calculating distance/time/emission matrices")
-                _, times, emissions = get_distance_runner(filtered_origin_loc)
+                _, times, emissions = get_distance_runner(filtered_origin_loc, priority=priority)
                 
                 times = [[t / 60.0 for t in row] for row in times]
                 time_windows = list(zip(
@@ -334,7 +334,8 @@ def priority_optimization(request, format=None):
                     
                     prev_to_loc = get_directions(prev_loc_lon_lat, loc_lon_lat)
                     if loc_index == 0:
-                        break
+                        # Skip depot (origin), don't process it as a delivery location
+                        continue
                     
                     estimated_travel_time = ((prev_to_loc[0]['legs'][0]['duration']['value']) / 60 ) + prev_loc['service_time'] 
 
