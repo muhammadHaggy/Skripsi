@@ -66,7 +66,9 @@ def google_or(data):
         else:
             index = manager.NodeToIndex(location_idx)
             time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
-            routing.AddDisjunction([index], 100000)
+            # Increased penalty to 10M to ensure locations are visited even in emission mode
+            # where emission costs can be high (e.g., 1200g CO2 * 100 = 120,000)
+            routing.AddDisjunction([index], 10000000)
 
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (
