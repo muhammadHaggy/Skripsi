@@ -398,27 +398,15 @@ def priority_optimization(request, format=None):
                     prev_locaction = location
         
 
-
                 reachable_loc_dest_ids = set(actual_reachable_locations_id)
                 valid_dos = df_sorted[
                     (df_sorted['truck_id'] == truck.get_id()) &
                     (df_sorted['loc_dest_id'].isin(reachable_loc_dest_ids))
                 ]
                 
-                # Create a mapping of loc_dest_id to ETA from loc_dest_info
-                loc_dest_eta_map = {info['loc_dest_id']: info['eta'] for info in loc_dest_info}
-                
-                # Build delivery_orders with ETA included
-                delivery_orders_with_eta = []
-                for do_id, loc_dest_id in zip(valid_dos["id"].tolist(), valid_dos["loc_dest_id"].tolist()):
-                    delivery_orders_with_eta.append({
-                        "delivery_order_id": do_id,
-                        "eta": loc_dest_eta_map.get(loc_dest_id, None)
-                    })
-                
                 shipment_entry = {
                         "id_truck": truck.get_id(),
-                        "delivery_orders": delivery_orders_with_eta,
+                        "delivery_orders": [{"delivery_order_id": do_id} for do_id in valid_dos["id"].tolist()],
                         "location_routes": list_of_location_routes,  
                         "all_coords": all_cords,
                         "total_time": total_time,       

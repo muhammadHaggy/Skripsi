@@ -56,8 +56,8 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
     startTime: "08:00 WIB",
     endTime: "17:00 WIB",
     distance: `${order.loc_ori?.dist_to_origin || 0} Km`,
-    arrivalTime: order?.eta || 'N/A',
-    departureTime: order?.etd || 'N/A'
+    arrivalTime: order.eta || 'N/A',
+    departureTime: order.etd || 'N/A'
   }));
 
   const locationRoutes = pengiriman.location_routes || [];
@@ -142,11 +142,7 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
               </div>
               <div>
                 <p className="text-xs text-gray-600">ETA</p>
-                <p className="text-sm">
-                  {pengiriman.delivery_orders?.at(-1)?.eta ||
-                    pengiriman.additional_info?.at(-1)?.eta ||
-                    'N/A'}
-                </p>
+                <p className="text-sm">{pengiriman.delivery_orders.at(-1).eta || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-600">Total Jarak Tempuh</p>
