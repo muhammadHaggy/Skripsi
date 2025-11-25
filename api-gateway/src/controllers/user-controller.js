@@ -89,7 +89,7 @@ const getAllUserController = async (request, response, next) => {
 
 const logoutUserController = async (request, response, next) => {
   try {
-    const result = await userService.logoutUserService();
+    const result = await userService.logoutUserService(request);
     response.status(200).json(HTTPResponse(true, 200, "Success", result, null));
   } catch (error) {
     next(error);

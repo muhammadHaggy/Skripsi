@@ -1,0 +1,221 @@
+networks:
+  tms_net:
+    name: tms_net
+  nginx-manager_customnetwork:
+    external: true
+
+volumes:
+  db_data:
+  storage_uploads:
+  cloudbeaver_data:
+
+services:
+  # API Gateway stack
+  db:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
+    image: postgres:16
+    container_name: api_gateway_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=paragon
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - tms_net
+    security_opt:
+      - seccomp=unconfined
+
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:latest
+    container_name: cloudbeaver
+    restart: unless-stopped
+    ports:
+      - "15050:8978"
+    volumes:
+      - cloudbeaver_data:/opt/cloudbeaver/workspace
+    networks:
+      - tms_net
+
+
+  rabbitmq:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
+    image: rabbitmq:3.13-management
+    container_name: api_gateway_rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - tms_net
+    security_opt:
+      - seccomp=unconfined
+
+
+  # Optimization algorithm (Django)
+  opt-algorithm:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
+    image: ${DOCKERHUB_USERNAME}/opt-algorithm:latest
+    container_name: opt-algorithm
+    environment:
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - AIRFLOW_URL=${AIRFLOW_URL}
+      - AIRFLOW_USER=${AIRFLOW_USER}
+      - AIRFLOW_PASS=${AIRFLOW_PASS}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+    restart: always
+    networks:
+      tms_net: {}
+      nginx-manager_customnetwork:
+        ipv4_address: 172.20.0.180
+    security_opt:
+      - seccomp=unconfined
+
+  api_gateway:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
+    image: ${DOCKERHUB_USERNAME}/api-gateway:latest
+    ports:
+      - "28080:8080"
+    container_name: api_gateway
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/paragon?schema=public
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+      - DJANGO_URL=http://opt-algorithm:8000
+      - SECRET_KEY=${SECRET_KEY}
+      - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
+      - RABBITMQ_ROUTING_KEY=${RABBITMQ_ROUTING_KEY}
+      - RABBITMQ_AUDIT_KEY=${RABBITMQ_AUDIT_KEY}
+      - RABBITMQ_API_KEY=${RABBITMQ_API_KEY}
+      - RUN_INITIAL_DATA=${RUN_INITIAL_DATA}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+    restart: always
+    command: sh -c "npx prisma migrate deploy && node index.js"
+    networks:
+      tms_net: {}
+      nginx-manager_customnetwork:
+        ipv4_address: 172.20.0.161
+
+  
+  # Storage service
+  storage_service:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
+    ports:
+      - "18081:8081"
+    image: ${DOCKERHUB_USERNAME}/storage-service:latest
+    container_name: storage_service
+    volumes:
+      - storage_uploads:/app/uploads
+    environment:
+      - STORAGE_API_KEY=${STORAGE_API_KEY}
+    restart: always
+    networks:
+      tms_net: {}
+      nginx-manager_customnetwork:
+        ipv4_address: 172.20.0.162
+
+  
+  # Worker
+  tmslastmile_worker:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
+    image: ${DOCKERHUB_USERNAME}/tmslastmile-worker:latest
+    container_name: tmslastmile_worker
+    environment:
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+      - EXCHANGE=box_exchange
+      - ROUTING_KEY=box.job
+      - AUDIT_KEY=box.audit
+      - QUEUE=${QUEUE}
+      - BACKEND_API=http://api_gateway:8080/api/v1/box/dimension-result
+      - ML_API_URL=${ML_API_URL}
+      - RABBITMQ_API_KEY=${RABBITMQ_API_KEY}
+      - STORAGE_API_KEY=${STORAGE_API_KEY}
+      - MOCK_ML_MODE=${MOCK_ML_MODE}
+    depends_on:
+      api_gateway:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    restart: always
+    networks:
+      - tms_net
+    security_opt:
+      - seccomp=unconfined
+
+
+
+  # Web Frontend
+  web_frontend:
+    ulimits:
+      stack: 8388608   
+      nproc: 40960
+    image: ${DOCKERHUB_USERNAME}/web-frontend:latest
+    container_name: web-frontend
+    ports:
+      - "13000:3000"
+    environment:
+      - REACT_APP_GOOGLE_MAPS_KEY=${REACT_APP_GOOGLE_MAPS_KEY}
+      - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
+    restart: always
+    networks:
+      tms_net: {}
+      nginx-manager_customnetwork:
+        ipv4_address: 172.20.0.163
+
+  ml_service:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
+    build:
+      context: ./machine-learning
+      dockerfile: Dockerfile.gpu
+    pull_policy: build
+    image: custom-ml-service:local
+    container_name: ml_service
+    profiles:
+      - "ml"
+    ports:
+      - "15001:5001"
+    environment:
+      # Retain application-specific environment variables
+      STORAGE_API_KEY: ${STORAGE_API_KEY}
+      PYTHON_PATH: python
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: always
+    networks:
+      - tms_net
+    security_opt:
+      - seccomp=unconfined

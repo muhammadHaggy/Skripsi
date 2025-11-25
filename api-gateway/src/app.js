@@ -4,18 +4,14 @@ import { errorMiddleware } from "./middlewares/error-middleware.js";
 import { publicRouter } from "./routes/public-route.js";
 import { restrictedRouter } from "./routes/restricted-route.js";
 import cors from "cors";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger.js";
 
 export const app = express();
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (origin) {
-        callback(null, origin);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: true,
     credentials: true,
   })
 );
@@ -25,6 +21,8 @@ app.use(express.json());
 app.use(logHttpRequest);
 
 app.use(publicRouter);
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use(restrictedRouter);
 

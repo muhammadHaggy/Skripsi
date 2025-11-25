@@ -1,7 +1,12 @@
 import axios from 'axios'
 
+const envBackendUrl = process.env.REACT_APP_BACKEND_URL
+const apiBaseUrl = envBackendUrl
+  ? `${envBackendUrl.replace(/\/$/, '')}/api/v1`
+  : `${window.location.protocol}//${window.location.host}/api/v1`
+
 const axiosAuthInstance = axios.create({
-  baseURL: process.env.REACT_APP_BACKEND_URL,
+  baseURL: apiBaseUrl,
   withCredentials: true
 })
 

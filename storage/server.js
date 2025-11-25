@@ -15,7 +15,7 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = 8081;
-const API_KEY = process.env.API_KEY;
+const API_KEY = process.env.STORAGE_API_KEY;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

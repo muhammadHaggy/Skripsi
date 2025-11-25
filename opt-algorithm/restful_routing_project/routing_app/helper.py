@@ -1,8 +1,8 @@
+import os
 import googlemaps
 import gmaps
 from scipy.spatial.distance import cdist
 import numpy as np
-from decouple import Config, RepositoryEnv
 from geopy.distance import geodesic
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.metrics import silhouette_score as ss
@@ -10,9 +10,13 @@ from skopt import gp_minimize
 from skopt.space import Real, Integer
 from skopt.utils import use_named_args
 from datetime import datetime
+from .logger_utils import get_logger, log_step, log_external_call
 
-config = Config(RepositoryEnv('.env'))
-API_KEY = config('API_KEY')
+# Support reading API key only from environment
+API_KEY = os.getenv('GOOGLE_MAPS_API_KEY') or os.getenv('API_KEY')
+
+# Initialize logger
+logger = get_logger(__name__)
 
 def calculate_gamma1(visited_nodes, all_nodes, df):
     total_demand_visited = sum(df.at[node, 'demand'] for node in visited_nodes)
@@ -88,20 +92,29 @@ def vincenty_batch_vectorized(origin_coords, destination_coords):
                   lambda u, v: geodesic_distance(u, v))
     return dists
     
-def get_distance_runner(bin_cluster_data):
-    distances, times = get_distance_time_matrices(bin_cluster_data)
-    return distances, times  
+from .airflow_client import trigger_inference, poll_dag_run
+from .minio_client import get_inference_result
 
-def get_distance_time_matrices(locations, batch_size=10):
+def get_distance_runner(bin_cluster_data, priority='time'):
+    logger.info(f"[get_distance_runner] START - Processing {len(bin_cluster_data)} locations, priority={priority}")
+    distances, times, emissions = get_distance_time_matrices(bin_cluster_data, priority=priority)
+    logger.info(f"[get_distance_runner] COMPLETE - Generated matrices: {len(distances)}x{len(distances[0]) if distances else 0}")
+    return distances, times, emissions
+
+def get_distance_time_matrices(locations, batch_size=10, priority='time'):
+    logger.info(f"[get_distance_time_matrices] START - {len(locations)} locations, batch_size={batch_size}, priority={priority}")
+    
     def chunks(lst, n):
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
 
     location_batches = list(chunks(locations, batch_size))
     num_locations = len(locations)
+    logger.info(f"[get_distance_time_matrices] Created {len(location_batches)} batches")
     
     distance_matrix = np.zeros((num_locations, num_locations))
     time_matrix = np.zeros((num_locations, num_locations))
+    emission_matrix = np.zeros((num_locations, num_locations))
 
     for i, origin_batch in enumerate(location_batches):
         for j, destination_batch in enumerate(location_batches):
@@ -113,6 +126,52 @@ def get_distance_time_matrices(locations, batch_size=10):
             average_speed = 60
             dists_km = dists / 1000
             times = (dists_km / average_speed) * 3600
+            
+            # Calculate emissions using Airflow/MinIO ONLY if priority is 'emission'
+            emissions = np.zeros(dists.shape)
+            if priority == 'emission':
+                logger.info(f"[Emission] Priority is 'emission', calculating emission matrix via Airflow")
+                # Note: This is N^2 and will be slow.
+                for r in range(len(origin_coords)):
+                    for c in range(len(destination_coords)):
+                        origin_str = f"{origin_coords[r][0]},{origin_coords[r][1]}"
+                        dest_str = f"{destination_coords[c][0]},{destination_coords[c][1]}"
+                        
+                        if origin_str == dest_str:
+                            continue
+
+                        log_external_call(logger, "Airflow", "trigger_inference", {"origin": origin_str, "dest": dest_str})
+                        dag_run_id = trigger_inference(origin_str, dest_str)
+                        
+                        if dag_run_id:
+                            logger.info(f"[Emission] DAG run triggered: {dag_run_id}")
+                            status = poll_dag_run(dag_run_id)
+                            if status == 'success':
+                                result = get_inference_result(dag_run_id)
+                                # New JSON structure:
+                                # {
+                                #   "Emission Rate": {
+                                #     "CO(g)": ..., "HC(g)": ..., "NOx(g)": ...,
+                                #     "PM2.5_Ele(g)": ..., "PM2.5_Org(g)": ...,
+                                #     "Energy(KJ)": ..., "CO2(g)": ..., "Fuel(g)": ..., "TT(s)": ...
+                                #   },
+                                #   "Emission Factor": { ... }
+                                # }
+                                if result and 'Emission Rate' in result:
+                                    emission_rate = result['Emission Rate']
+                                    # Use CO2 as the primary emission metric (in grams)
+                                    # You can also create a weighted sum of multiple pollutants if needed
+                                    co2_emission = float(emission_rate.get('CO2(g)', 0))
+                                    emissions[r][c] = co2_emission
+                                    logger.info(f"[Emission] Retrieved CO2 emission: {co2_emission}g for {origin_str} -> {dest_str}")
+                                else:
+                                    logger.warning(f"[Emission] Result missing 'Emission Rate': {result}")
+                            else:
+                                logger.warning(f"[Emission] DAG run failed or timed out: {status}")
+                        else:
+                            logger.error("[Emission] Failed to trigger DAG")
+            else:
+                logger.info(f"[Emission] Priority is '{priority}', skipping emission calculation (using zero matrix)")
 
             start_row = i * batch_size
             start_col = j * batch_size
@@ -121,8 +180,10 @@ def get_distance_time_matrices(locations, batch_size=10):
             
             distance_matrix[start_row:end_row, start_col:end_col] = dists[:end_row - start_row, :end_col - start_col]
             time_matrix[start_row:end_row, start_col:end_col] = times[:end_row - start_row, :end_col - start_col]
+            emission_matrix[start_row:end_row, start_col:end_col] = emissions[:end_row - start_row, :end_col - start_col]
 
-    return distance_matrix.tolist(), time_matrix.tolist()
+    logger.info(f"[get_distance_time_matrices] COMPLETE - Matrices generated successfully")
+    return distance_matrix.tolist(), time_matrix.tolist(), emission_matrix.tolist()
 
 def validate_distance(locations, distances):
     for i, row in enumerate(distances):
@@ -135,9 +196,41 @@ def validate_distance(locations, distances):
                     print(result)
 
 def get_directions(origin, destination):
-    gmaps = googlemaps.Client(key=API_KEY)
-    directions = gmaps.directions(origin, destination, mode="driving")
-    return directions
+    # Try Google Directions if key is available; otherwise or on failure, fallback to geodesic-based estimate
+    if API_KEY:
+        try:
+            gmaps_client = googlemaps.Client(key=API_KEY)
+            log_external_call(logger, "GoogleMaps", "directions", {"origin": str(origin)[:50], "dest": str(destination)[:50]})
+            return gmaps_client.directions(origin, destination, mode="driving")
+        except Exception as e:
+            logger.warning(f"[get_directions] Google Directions failed; using fallback: {e}")
+    # Fallback: compute straight-line distance and estimate duration using heuristic speeds
+    try:
+        distance_m = geodesic_distance(origin, destination)
+        distance_km = distance_m / 1000.0
+        if distance_km < 10:
+            speed_kmh = 15
+        elif distance_km < 50:
+            speed_kmh = 30
+        else:
+            speed_kmh = 40
+        duration_minutes = (distance_km / max(speed_kmh, 1)) * 60.0
+        duration_seconds = int(duration_minutes * 60)
+        return [{
+            'legs': [{
+                'duration': {'value': duration_seconds},
+                'distance': {'value': int(distance_m)}
+            }]
+        }]
+    except Exception as e:
+        print("[dbg] Fallback directions computation failed:", str(e))
+        # Last-resort constant values to avoid crashing
+        return [{
+            'legs': [{
+                'duration': {'value': 0},
+                'distance': {'value': 0}
+            }]
+        }]
 
 
 def handle_noise_with_kmeans(df):
@@ -175,12 +268,14 @@ def handle_noise_with_kmeans(df):
     return df
 
 def dbscan_cluster(df, warehouse_loc):
+    logger.info(f"[dbscan_cluster] START - Clustering {len(df)} locations")
     df['demand'] = df['quantity'] * df['volume']
     data = df[['latitude', 'longitude', 'demand']].to_numpy()
     capacity = 1000000
 
     # best_eps, best_min_samples = get_eps_and_min_samples(data)
     best_eps, best_min_samples = 25000, 5
+    logger.info(f"[dbscan_cluster] Using eps={best_eps}, min_samples={best_min_samples}")
     Cnum = 1
     unvisited_nodes = set(range(len(data)))
     clusters = []
@@ -239,6 +334,8 @@ def dbscan_cluster(df, warehouse_loc):
     for noise in noise_nodes:
         df.at[noise, 'cluster'] = -1
 
+    cluster_counts = df['cluster'].value_counts()
+    logger.info(f"[dbscan_cluster] COMPLETE - Created {len(cluster_counts)} clusters, {len(noise_nodes)} noise points")
     return df
 
 def get_eps_and_min_samples(data):

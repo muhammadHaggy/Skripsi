@@ -1,0 +1,108 @@
+# --------------------------------------------------------------------------------
+# STAGE 1: Base Setup and System Dependencies
+# --------------------------------------------------------------------------------
+# Base image with CUDA, cuDNN, and Ubuntu 22.04 development tools
+FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
+
+# Set environment variable for non-interactive package installation
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install core system dependencies (Python 3.10, build tools, git, graphics libs)
+RUN set -eux; \
+    # Clean up and ensure partial directory exists
+    rm -f /etc/apt/apt.conf.d/docker-clean || true; \
+    mkdir -p /var/cache/apt/archives/partial; \
+    \
+    # Update and install required packages
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      python3.10 python3-pip python3.10-venv python3.10-dev git build-essential libgl1 curl; \
+    \
+    # Create symlink for 'python' to point to python3.10
+    ln -sf /usr/bin/python3.10 /usr/bin/python; \
+    \
+    # Upgrade pip to the specified version
+    python -m pip install --no-cache-dir --progress-bar off --upgrade "pip==24.3.1"; \
+    \
+    # Cleanup system files to reduce image size
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+
+# Set the working directory for the application
+WORKDIR /app
+
+# --------------------------------------------------------------------------------
+# STAGE 2: Python Dependency Installation
+# --------------------------------------------------------------------------------
+# Copy only the requirements file to leverage build cache
+COPY requirements.txt .
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_PROGRESS_BAR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1
+
+ENV CUDA_HOME=/usr/local/cuda \
+    TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9"
+
+# Install Python dependencies, carefully handling PyTorch-related packages
+RUN set -eux; \
+    # 1. Remove problematic VCS dependency (pointops) from requirements.txt
+    sed -i 's|^git+https://github.com/Silverster98/pointops.git||' requirements.txt; \
+    # 2. Create clean requirements file and separate core requirements
+    awk 'NF' requirements.txt > requirements.clean.txt; \
+    grep -v -E '^(torch|torchvision|torchaudio|torch_scatter|mmcv|SharedArray|pointops)' \
+      requirements.clean.txt > requirements.core.txt; \
+    \
+    # 3. Install PyTorch stack from custom index for cu121
+    pip install --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cu121 \
+      "torch==2.2.0" "torchvision==0.17.0" "torchaudio==2.2.0"; \
+    \
+    # 4. Install specific geometry/vision libraries that need custom index/versions
+    pip install --no-cache-dir \
+      "torch_scatter==2.1.2+pt22cu121" \
+      -f https://data.pyg.org/whl/torch-2.2.0+cu121.html; \
+    \
+    # 4a. Install torch_geometric matching torch 2.2.0 + cu121
+    pip install --no-cache-dir \
+      "torch_geometric==2.6.1" \
+      -f https://data.pyg.org/whl/torch-2.2.0+cu121.html; \
+    \
+    pip install --no-cache-dir \
+      mmcv \
+      -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.2/index.html; \
+    \
+    # 5. Install all remaining core dependencies
+    pip install --prefer-binary -r requirements.core.txt; \
+    \
+    # 6. Install packages excluded from core list but required at runtime (after numpy is available)
+    pip install --no-cache-dir \
+      "SharedArray==3.2.4"; \
+    \
+    # 7. Clean up temporary requirements files
+    rm requirements.clean.txt requirements.core.txt
+
+# --------------------------------------------------------------------------------
+# STAGE 3: Application Code and Entrypoint
+# --------------------------------------------------------------------------------
+# Copy the rest of the application files
+COPY . .
+
+# Ensure the entrypoint script is executable
+RUN chmod +x /app/entrypoint.sh
+
+# Set final application specific environment variable
+ENV INSTALL_POINTOPS_AT_RUNTIME=1
+
+# Expose the application port
+EXPOSE 5001
+
+# Ensure Python output is unbuffered
+ENV PYTHONUNBUFFERED=1
+
+# Define the entrypoint command
+ENTRYPOINT ["/app/entrypoint.sh"]

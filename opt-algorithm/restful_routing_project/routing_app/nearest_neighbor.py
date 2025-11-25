@@ -1,36 +1,39 @@
 from datetime import datetime, time, timedelta
+import os
 import googlemaps
 import polyline
-from decouple import Config, RepositoryEnv
+from .logger_utils import get_logger
 
-config = Config(RepositoryEnv('.env'))
-API_KEY = config('API_KEY')
+# Read API key from container environment (set via docker-compose)
+API_KEY = os.getenv('GOOGLE_MAPS_API_KEY') or os.getenv('API_KEY')
+
+logger = get_logger(__name__)
 
 def nearest_neighbor_runner(bin_cluster_data, distances, times, distance_from_DC, duration_from_DC, ori_lat, ori_long):
+    logger.info(f"[nearest_neighbor_runner] START - Processing {len(bin_cluster_data)} locations")
      
     NN_route_indexs, NN_unreachable_indexs, total_time, total_time_with_waiting, total_distance, location_dest_info = nearest_neighbor_vrptw(bin_cluster_data, distances, times, distance_from_DC, duration_from_DC)
 
     NN_route_loc_dest_ids = bin_cluster_data.iloc[NN_route_indexs]['loc_dest_id'].tolist()
     NN_unreachable_loc_dest_ids = bin_cluster_data.iloc[NN_unreachable_indexs]['loc_dest_id'].tolist()
-    print("Route (loc_dest_id): ")
-    print(NN_route_loc_dest_ids)
-    print("Unreachable Route (loc_dest_id): ")
-    print(NN_unreachable_loc_dest_ids)
+    logger.info(f"[nearest_neighbor_runner] Route: {len(NN_route_loc_dest_ids)} reachable, {len(NN_unreachable_loc_dest_ids)} unreachable")
+    logger.debug(f"[nearest_neighbor_runner] Reachable IDs: {NN_route_loc_dest_ids}")
 
     if (len(NN_unreachable_loc_dest_ids) == 0):
-        print("\nAll locations can be reached")
+        logger.info("[nearest_neighbor_runner] All locations can be reached")
 
     else:
-        print("\nUnreachable Locations ID:")
-        for address in NN_unreachable_loc_dest_ids:
-            print(address)
+        logger.warning(f"[nearest_neighbor_runner] Unreachable locations: {NN_unreachable_loc_dest_ids}")
     dc_banten_coords = f"{ori_lat},{ori_long}"
     google_maps_client = googlemaps.Client(key=API_KEY)
+    logger.info(f"[nearest_neighbor_runner] Fetching route coordinates")
     NN_all_coords, NN_directions_results = fetch_concatenate_routes(NN_route_indexs, bin_cluster_data, google_maps_client, dc_banten_coords)
-     
+    
+    logger.info(f"[nearest_neighbor_runner] COMPLETE - total_time={total_time}, total_distance={total_distance}m")
     return NN_all_coords, NN_directions_results, NN_route_loc_dest_ids, NN_unreachable_loc_dest_ids, total_time, total_time_with_waiting, total_distance, location_dest_info
 
 def nearest_neighbor_vrptw(locations, distance_matrix, time_matrix, initial_distance, initial_duration):
+    logger.info(f"[nearest_neighbor_vrptw] START - Processing {len(locations)} locations")
     location_dest_info = []
 
     num_locations = len(locations)
@@ -44,10 +47,7 @@ def nearest_neighbor_vrptw(locations, distance_matrix, time_matrix, initial_dist
     start_time = time(8, 0)
     current_time = datetime.combine(datetime.today(), start_time)
     service_time = timedelta(minutes=locations.iloc[0]['service_time'])  # 15 minutes service time
-    print(" ")
-    print("==========================Nearest Neighbor==================================")
-    print(f"*****************Starting at DC Banten at {current_time.strftime('%H:%M:%S')}*****************")
-    print(" ")
+    logger.info(f"[nearest_neighbor_vrptw] Starting at {current_time.strftime('%H:%M:%S')} from DC")
      
 
     first_location_index = 0   
@@ -129,11 +129,10 @@ def nearest_neighbor_vrptw(locations, distance_matrix, time_matrix, initial_dist
         route.append(next_index)
         unvisited.remove(next_index)
     
-    print(f"Route Index: {route}")
-    print(f"\nTotal travel time: {total_time}")
-    print(f"Total travel time with waiting time: {total_time_waiting}")
-    print(f"Total travel distance: {total_distance} meters")
-    print("=========================================================================")
+    logger.info(f"[nearest_neighbor_vrptw] Route: {route}")
+    logger.info(f"[nearest_neighbor_vrptw] Total travel time: {total_time}")
+    logger.info(f"[nearest_neighbor_vrptw] Total travel time with waiting: {total_time_waiting}")
+    logger.info(f"[nearest_neighbor_vrptw] Total travel distance: {total_distance} meters")
     return route, unreachable, total_time, total_time_waiting, total_distance, location_dest_info
 
 def calculate_total_distance(route_indices, distance_matrix, distance_from_DC):

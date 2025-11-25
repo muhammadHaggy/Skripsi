@@ -139,46 +139,38 @@ const loginUserMobileService = async (request) => {
 };
 
 const logoutUserService = async (request) => {
-  const user_id = request.decodedToken.id;
-  await updateUser(user_id, { token: null });
+  const userId = request.decodedToken?.id;
+  if (!userId) {
+    throw new ResponseError(401, "Unauthorized");
+  }
+  await updateUser(userId, { web_token: null, mobile_token: null });
 };
 
 const refreshTokenService = async (request) => {
-  const old_token = validate(refreshTokenValidator, request.body.old_token);
-  const totalUser = await countUser(null, null, old_token, null);
+  const oldToken = validate(refreshTokenValidator, request.body.old_token);
+  const totalUser = await countUser(null, null, oldToken, null);
 
-  if (totalUser == 0) {
+  if (totalUser === 0) {
     throw new ResponseError(404, "Old token is invalid");
   }
 
-  const user = await getUserDetails(null, null, old_token);
+  const found = await getUserDetails(null, null, oldToken);
+  if (!found) {
+    throw new ResponseError(404, "Old token is invalid");
+  }
+  const { password, web_token, mobile_token, ...userCore } = found;
 
-  let data = {
-    time: Date(),
-    user: {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      is_active: user.is_active,
-      role: {
-        id: user.role.id,
-        name: user.role.name,
-        is_allowed_shipment: user.role.is_allowed_shipment,
-        is_allowed_do: user.role.is_allowed_do,
-        is_allowed_location: user.role.is_allowed_location,
-        is_allowed_truck: user.role.is_allowed_truck,
-        is_allowed_user: user.role.is_allowed_user,
-        dc_id: user.role?.dc_id == undefined ? null : user.role.dc_id,
-      },
-    },
-  };
+  const tokenType = oldToken === web_token ? "web" : oldToken === mobile_token ? "mobile" : "web";
+  const payload = { ...userCore, type: tokenType };
 
-  const new_token = jwt.sign(data, jwtSecretKey, {
-    expiresIn: "5h",
-  });
+  const newToken = jwt.sign(payload, jwtSecretKey, { expiresIn: "5h" });
 
-  await updateUser(user.id, { web_token: new_token });
-  return new_token;
+  if (tokenType === "mobile") {
+    await updateUser(userCore.id, { mobile_token: newToken });
+  } else {
+    await updateUser(userCore.id, { web_token: newToken });
+  }
+  return newToken;
 };
 
 const activateUserService = async (request) => {

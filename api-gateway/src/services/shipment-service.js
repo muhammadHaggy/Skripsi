@@ -13,6 +13,7 @@ import {
   getDeliveryOrdersByShipmentId,
   updateStatusDO,
 } from "../repositories/delivery-order-repository.js";
+import { prisma } from "../config/database.js";
 import axios from "axios";
 
 const getAllShipmentAdminService = async (skip, limit) => {
@@ -24,57 +25,83 @@ const getAllShipmentService = async (dc_id, skip, limit) => {
 };
 
 const getBoxLayoutingCoordinatesService = async (id) => {
-  // ini requestnya shipment_id aja
-  // terus dapetin detail shipment by id (belum ada keknya servicenya) nanti ada data shipment kayak gini (done)
+  const startedAt = Date.now();
+  console.log(`[BoxLayouting][Service] START shipmentId=%s`, id);
+  // Fetch shipment details
   const shipment = await getDetailShipmentWebService(id);
   const apiUrl = process.env.DJANGO_URL + "/api/layouting";
+  console.log(`[BoxLayouting][Service] Shipment fetched: num=%s DOs=%d routes=%d truck=%s apiUrl=%s`,
+    shipment?.shipment_num,
+    shipment?.delivery_orders?.length ?? -1,
+    shipment?.location_routes?.length ?? -1,
+    shipment?.truck?.truck_type?.name ?? 'N/A',
+    apiUrl
+  );
 
-    const shipmentData = {};
-    
-    const doMap = {};
-    shipment.delivery_orders.forEach(doItem => {
-        doMap[doItem.loc_dest_id] = doItem;
-    });
-    
-    // Process DOs in the order of location_routes
-    shipment.location_routes.forEach(route => {
-        const doItem = doMap[route.id];
-        if (doItem) {
-            const doKey = `${doItem.delivery_order_num}`;
-            shipmentData[doKey] = {};
-            
-            doItem.boxes.forEach((box, boxIndex) => {
-                shipmentData[doKey][boxIndex + 1] = [
-                    box.length,
-                    box.width, 
-                    box.height,
-                    box.quantity
-                ];
-            });
-        }
-    });
-      
-    const requestData = {
-      shipment_data: shipmentData,
-      container: shipment.truck?.truck_type?.name || 'Blind Van',
-      shipment_id: id,
-      shipment_num: shipment.shipment_num,
-    };
-    
-    try {
-        const response = await axios.post(apiUrl, requestData, {
-            headers: {
-                Authorization: process.env.OPTIMIZATION_KEY,
-                'Content-Type': 'application/json',
-                Accept: '*/*',
-                'Accept-Encoding': 'gzip, deflate, br',
-                Connection: 'keep-alive',
-            },
-        })
-        return [response.data]
-    } catch (error) {
-        return [error.message]
+  const shipmentData = {};
+
+  const doMap = {};
+  shipment.delivery_orders.forEach(doItem => {
+    doMap[doItem.loc_dest_id] = doItem;
+  });
+
+  // Process DOs in the order of location_routes
+  shipment.location_routes.forEach(route => {
+    const doItem = doMap[route.id];
+    if (doItem) {
+      const doKey = `${doItem.delivery_order_num}`;
+      shipmentData[doKey] = {};
+
+      doItem.boxes.forEach((box, boxIndex) => {
+        shipmentData[doKey][boxIndex + 1] = [
+          box.length,
+          box.width,
+          box.height,
+          box.quantity
+        ];
+      });
     }
+  });
+
+  const rawContainerName = shipment.truck?.truck_type?.name || 'Blind Van';
+  const normalizedContainer = String(rawContainerName).toUpperCase().replace(/\s+/g, '_'); // e.g., 'Blind Van' -> 'BLIND_VAN'
+  const requestData = {
+    shipment_data: shipmentData,
+    container: normalizedContainer,
+    shipment_id: id,
+    shipment_num: shipment.shipment_num,
+  };
+
+  try {
+    const reqStarted = Date.now();
+    const response = await axios.post(apiUrl, requestData, {
+      timeout: 30000, // 30s defensive timeout
+      headers: {
+        Authorization: process.env.OPTIMIZATION_KEY,
+        'Content-Type': 'application/json',
+        Accept: '*/*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        Connection: 'keep-alive',
+      },
+    });
+    const reqDuration = Date.now() - reqStarted;
+    const sizeBytes = Buffer.byteLength(JSON.stringify(response.data || {}));
+    console.log(`[BoxLayouting][Service] UPSTREAM OK status=%d durationMs=%d sizeBytes=%d`, response.status, reqDuration, sizeBytes);
+    const totalDuration = Date.now() - startedAt;
+    console.log(`[BoxLayouting][Service] DONE shipmentId=%s totalDurationMs=%d`, id, totalDuration);
+    return [response.data]
+  } catch (error) {
+    const totalDuration = Date.now() - startedAt;
+    if (error.response) {
+      console.error(`[BoxLayouting][Service] UPSTREAM ERROR status=%d data=%j durationMs=%d`, error.response.status, error.response.data, totalDuration);
+    } else if (error.request) {
+      console.error(`[BoxLayouting][Service] UPSTREAM NO-RESPONSE durationMs=%d err=%s`, totalDuration, error.message || error);
+    } else {
+      console.error(`[BoxLayouting][Service] ERROR durationMs=%d err=%s`, totalDuration, error.message || error);
+    }
+    // Surface error message to caller but keep response shape
+    return [{ error: true, message: error.message || 'Unknown error calling optimization service' }]
+  }
 }
 
 const getAllMobileShipmentsService = async (dc_id, skip, limit) => {
@@ -147,10 +174,40 @@ const getDetailShipmentWebService = async (id) => {
   ).map((sdo) => sdo.delivery_order);
 
   const locationRoutes = shipment.ShipmentLocation.map((sl) => sl.location);
+
+  // Get DC location from truck
+  const dcLocation = truck?.dc_id ? await (async () => {
+    const { getLocationByID } = await import("../repositories/locations-repository.js");
+    const dcLocations = await prisma.location.findFirst({
+      where: {
+        dc_id: truck.dc_id,
+        is_dc: true,
+        is_deleted: false,
+      },
+      include: {
+        dc: true,
+        customer: true,
+      },
+    });
+    return dcLocations;
+  })() : null;
+
+  // Prepend DC location to location routes if it exists
+  const fullLocationRoutes = dcLocation ? [dcLocation, ...locationRoutes] : locationRoutes;
+
   const defaultStartTime = new Date();
   defaultStartTime.setHours(8, 0, 0, 0);
 
   let accumulatedMinutes = 0;
+
+  // Add DC as first entry in additional_info with zero travel time/distance
+  const dcAdditionalInfo = dcLocation ? {
+    loc_dest_id: dcLocation.id,
+    queue: 0,
+    eta: defaultStartTime.toTimeString().split(" ")[0],
+    travel_time: 0,
+    travel_distance: 0,
+  } : null;
 
   const additionalInfo = shipment.ShipmentLocation.map((sl) => {
     accumulatedMinutes += sl.travel_time ?? 0;
@@ -166,6 +223,8 @@ const getDetailShipmentWebService = async (id) => {
       travel_distance: sl.travel_distance,
     };
   });
+
+  const fullAdditionalInfo = dcAdditionalInfo ? [dcAdditionalInfo, ...additionalInfo] : additionalInfo;
 
   const current_capacity = deliveryOrdersRaw.reduce((acc, do_) => {
     const productLines = do_.ProductLine ?? [];
@@ -200,9 +259,9 @@ const getDetailShipmentWebService = async (id) => {
     current_capacity: current_capacity,
     truck,
     delivery_orders: deliveryOrders,
-    location_routes: locationRoutes,
+    location_routes: fullLocationRoutes,
     all_coords: JSON.parse(shipment.all_coords),
-    additional_info: additionalInfo,
+    additional_info: fullAdditionalInfo,
   };
 };
 

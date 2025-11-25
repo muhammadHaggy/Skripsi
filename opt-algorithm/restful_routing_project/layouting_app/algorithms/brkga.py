@@ -15,8 +15,13 @@ container_options = {
 
 def run_layouting_algorithm(shipment_data, selected_container, shipment_id, shipment_num):
     base_container = selected_container
-    print("Running BRKGA algorithm...")
-    print(shipment_data)
+    print("[Layouting][Algo] START shipment_id=", shipment_id, "container=", selected_container)
+    try:
+        do_count = len(shipment_data.keys()) if isinstance(shipment_data, dict) else -1
+        total_boxes = sum(sum(v[-1] for v in do_map.values()) for do_map in shipment_data.values()) if isinstance(shipment_data, dict) else -1
+        print("[Layouting][Algo] INPUT DOs=", do_count, "boxes=", total_boxes)
+    except Exception as e:
+        print("[Layouting][Algo] INPUT summary error:", str(e))
 
     # Mulai menghitung waktu
     start_time = time.time()
@@ -25,7 +30,7 @@ def run_layouting_algorithm(shipment_data, selected_container, shipment_id, ship
     box_DO_map = []
     sorted_DOs = list(shipment_data.keys())[::-1]
 
-    print("Sorted DOs: ",sorted_DOs)
+    print("[Layouting][Algo] Sorted DOs:", sorted_DOs)
 
     for do_idx, do in enumerate(sorted_DOs):
         for box_id, dims in shipment_data[do].items():
@@ -34,8 +39,7 @@ def run_layouting_algorithm(shipment_data, selected_container, shipment_id, ship
                 boxes.append((length, width, height))
                 box_DO_map.append(do_idx)
 
-    print("Boxes: ",boxes)
-    print("Length of boxes: ", len(boxes))
+    print("[Layouting][Algo] Boxes count:", len(boxes))
 
     inputs = {
         'v': boxes,
@@ -46,6 +50,7 @@ def run_layouting_algorithm(shipment_data, selected_container, shipment_id, ship
     }
 
     # Step 1: Jalankan algoritma untuk container awal
+    step1_start = time.time()
     model = BRKGA(inputs, 
              num_generations=20,
              num_individuals=30,
@@ -58,15 +63,16 @@ def run_layouting_algorithm(shipment_data, selected_container, shipment_id, ship
     decoder = PlacementProcedure(inputs, model.solution)
     fitness = decoder.evaluate()
     utilization = decoder.get_utilization()  # Dapatkan utilization
-    print("Tipe Truk: ", selected_container, "Fitness:", fitness)
-    print("Utilization: {:.2f}%".format(utilization * 100))
+    step1_ms = (time.time() - step1_start) * 1000
+    print("[Layouting][Algo] Step1 container=", selected_container, "fitness=", fitness, "util=", f"{utilization*100:.2f}%", "durMs=", int(step1_ms))
 
     # Step 2: Jika BLIND_VAN dan fitness >= 2, switch ke CDE
     if selected_container == "BLIND_VAN" and math.floor(fitness) >= 2:
-        print("BLIND_VAN tidak cukup, switching ke CDE...")
+        print("[Layouting][Algo] Switch to CDE due to fitness >= 2")
         selected_container = "CDE"
         inputs['V'] = [container_options[selected_container]]
         
+        step2_start = time.time()
         model = BRKGA(inputs, 
                     num_generations=20,
                     num_individuals=30,
@@ -79,11 +85,17 @@ def run_layouting_algorithm(shipment_data, selected_container, shipment_id, ship
         decoder = PlacementProcedure(inputs, model.solution)
         fitness = decoder.evaluate()
         utilization = decoder.get_utilization()  # Update utilization
-        print("Tipe Truk: ", selected_container, "Fitness (2):", fitness)
-        print("Utilization: {:.2f}%".format(utilization * 100))
+        step2_ms = (time.time() - step2_start) * 1000
+        print("[Layouting][Algo] Step2 container=", selected_container, "fitness=", fitness, "util=", f"{utilization*100:.2f}%", "durMs=", int(step2_ms))
         
         if math.floor(fitness) > 1:
-            inputs['V'] = [container_options[selected_container]] * math.ceil(fitness)
+            required_bins = math.ceil(fitness)
+            if required_bins > 10 or required_bins >= 10000:
+                print("[Layouting][Algo] Capping required bins:", required_bins, "-> 10")
+                required_bins = 10
+            inputs['V'] = [container_options[selected_container]] * required_bins
+
+            step3_start = time.time()
             model = BRKGA(inputs, 
                     num_generations=20,
                     num_individuals=30,
@@ -96,12 +108,12 @@ def run_layouting_algorithm(shipment_data, selected_container, shipment_id, ship
             decoder = PlacementProcedure(inputs, model.solution)
             fitness = decoder.evaluate()
             utilization = decoder.get_utilization()  # Update utilization
-            print("Tipe Truk: ", selected_container, "Fitness (3):", fitness)
-            print("Utilization: {:.2f}%".format(utilization * 100))
+            step3_ms = (time.time() - step3_start) * 1000
+            print("[Layouting][Algo] Step3 container=", selected_container, "fitness=", fitness, "util=", f"{utilization*100:.2f}%", "durMs=", int(step3_ms))
 
     # Hitung total waktu eksekusi
     running_time = time.time() - start_time
-    print("Total running time: {:.2f} seconds".format(running_time))
+    print("[Layouting][Algo] DONE totalSec=", f"{running_time:.2f}")
 
     # Format output
     output_layout = []

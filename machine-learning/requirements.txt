@@ -126,6 +126,7 @@ pillow==11.0.0
 platformdirs==4.3.7
 plotly==6.0.1
 plyfile==1.1
+git+https://github.com/Silverster98/pointops.git
 portalocker==3.1.1
 prometheus_client==0.21.1
 prompt_toolkit==3.0.50
@@ -172,6 +173,9 @@ tinycss2==1.4.0
 tomli==2.2.1
 torch==2.2.0
 torch-geometric==2.6.1
+torch_scatter==2.1.2+pt22cu121
+torchaudio==2.2.0
+torchvision==0.17.0
 tornado==6.4.2
 tqdm==4.67.1
 traitlets==5.14.3

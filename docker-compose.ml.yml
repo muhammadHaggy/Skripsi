@@ -1,0 +1,25 @@
+version: "2.2"
+
+services:
+  ml_service:
+    ulimits:
+      stack: 8388608    
+      nproc: 40960
+    build:
+      context: ./machine-learning
+      dockerfile: Dockerfile.gpu
+    image: custom-ml-service:local
+    container_name: ml_service
+    ports:
+      - "5001:5001"
+    environment:
+      STORAGE_API_KEY: ${STORAGE_API_KEY}
+      PYTHON_PATH: python
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: always
+    security_opt:
+      - seccomp=unconfined

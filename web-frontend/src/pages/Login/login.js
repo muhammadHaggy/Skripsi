@@ -42,7 +42,7 @@ const Login = () => {
         };
 
         try {
-            axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
+            axios.defaults.baseURL = `${process.env.REACT_APP_BACKEND_URL}/api/v1`;
 
             const response = await axios.post("/login", userData);
             if(response.status === 200){
