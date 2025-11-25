@@ -146,15 +146,24 @@ def get_distance_time_matrices(locations, batch_size=10):
                         status = poll_dag_run(dag_run_id)
                         if status == 'success':
                             result = get_inference_result(dag_run_id)
-                            # Assuming result contains 'emission' key or similar. 
-                            # If structure is unknown, we default to 0 or log error.
-                            # Based on user request, we need to "get the emission total".
-                            # Let's assume result['emission_total'] exists.
-                            if result and 'emission_total' in result:
-                                emissions[r][c] = float(result['emission_total'])
-                                logger.info(f"[Emission] Retrieved emission: {emissions[r][c]} for {origin_str} -> {dest_str}")
+                            # New JSON structure:
+                            # {
+                            #   "Emission Rate": {
+                            #     "CO(g)": ..., "HC(g)": ..., "NOx(g)": ...,
+                            #     "PM2.5_Ele(g)": ..., "PM2.5_Org(g)": ...,
+                            #     "Energy(KJ)": ..., "CO2(g)": ..., "Fuel(g)": ..., "TT(s)": ...
+                            #   },
+                            #   "Emission Factor": { ... }
+                            # }
+                            if result and 'Emission Rate' in result:
+                                emission_rate = result['Emission Rate']
+                                # Use CO2 as the primary emission metric (in grams)
+                                # You can also create a weighted sum of multiple pollutants if needed
+                                co2_emission = float(emission_rate.get('CO2(g)', 0))
+                                emissions[r][c] = co2_emission
+                                logger.info(f"[Emission] Retrieved CO2 emission: {co2_emission}g for {origin_str} -> {dest_str}")
                             else:
-                                logger.warning(f"[Emission] Result missing 'emission_total': {result}")
+                                logger.warning(f"[Emission] Result missing 'Emission Rate': {result}")
                         else:
                             logger.warning(f"[Emission] DAG run failed or timed out: {status}")
                     else:
