@@ -76,6 +76,12 @@ services:
     container_name: opt-algorithm
     environment:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - AIRFLOW_URL=${AIRFLOW_URL}
+      - AIRFLOW_USER=${AIRFLOW_USER}
+      - AIRFLOW_PASS=${AIRFLOW_PASS}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
     restart: always
     networks:
       tms_net: {}
