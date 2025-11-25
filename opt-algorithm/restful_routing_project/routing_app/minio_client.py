@@ -15,7 +15,7 @@ SECURE = os.getenv('MINIO_SECURE', 'False').lower() == 'true'
 
 def get_client():
     return Minio(
-        MINIO_ENDPOINT,
+        endpoint=MINIO_ENDPOINT,
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
         secure=SECURE
