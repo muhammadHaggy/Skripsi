@@ -179,19 +179,34 @@ def priority_optimization(request, format=None):
     priority = data["priority"]
 
     log_step(logger, "Calculating demand for delivery orders")
+    zero_demand_orders = []
     for i in range(len(delivery_orders)):
         volumes = 0
         quantities = 0
         demand = 0
-        for j in range(len(delivery_orders[i]["ProductLine"])):
+        product_line_count = len(delivery_orders[i]["ProductLine"])
+        for j in range(product_line_count):
             quantities += delivery_orders[i]["ProductLine"][j]["quantity"]
             volumes += (delivery_orders[i]["ProductLine"][j]["volume"])
             demand += (delivery_orders[i]["ProductLine"][j]["volume"]) *delivery_orders[i]["ProductLine"][j]["quantity"]
         delivery_orders[i]["demand"] = demand
         delivery_orders[i]["volume"] = volumes   
         delivery_orders[i]["quantity"] = quantities
+        
+        # Track zero-demand orders for debugging
+        if demand == 0:
+            zero_demand_orders.append({
+                "id": delivery_orders[i].get("id"),
+                "delivery_order_num": delivery_orders[i].get("delivery_order_num"),
+                "product_lines": product_line_count,
+                "total_volume": volumes,
+                "total_quantity": quantities,
+                "calculated_demand": demand
+            })
     
     logger.info(f"[PROCESSING] Total demand calculated for {len(delivery_orders)} delivery orders")
+    if zero_demand_orders:
+        logger.warning(f"[PROCESSING] Found {len(zero_demand_orders)} orders with ZERO demand: {zero_demand_orders}")
     
     log_step(logger, "Building truck models and sorting by capacity")
     trucks_model = get_trucks_model_sorted(trucks)
@@ -403,6 +418,8 @@ def priority_optimization(request, format=None):
                 shipment.append(shipment_entry)
                 
                 logger.info(f"[TRUCK {truck_counter}] COMPLETED - {len(valid_dos)} orders, {len(list_of_location_routes)} locations, distance={total_distance}m, time={total_time:.1f}min")
+            else:
+                logger.warning(f"[TRUCK {truck_counter}] SKIPPED - Truck has zero capacity despite {assigned_count} assigned orders. Orders likely have zero demand.")
                
     
         all_trucks_full = all(truck.get_avaiable_capacity() == 0 for truck in trucks_model)
