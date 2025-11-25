@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { LoadScript, GoogleMap, DirectionsService, DirectionsRenderer } from "@react-google-maps/api";
-import { Modal } from "../../components/Modal"; 
+import { Modal } from "../../components/Modal";
 import axiosAuthInstance from '../../utils/axios-auth-instance';
 
 function DetailPengiriman({ pengiriman, updatePengirimanList }) {
@@ -67,7 +67,7 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
     const matchingDOs = dos.filter(doItem => doItem.loc_dest_id === route.id);
 
     const loc_do = matchingDOs.map(doItem => doItem.delivery_order_num);
-      const boxCounts = matchingDOs.reduce((total, doItem) => {
+    const boxCounts = matchingDOs.reduce((total, doItem) => {
       return total + (doItem.boxes?.length || 0);
     }, 0);
 
@@ -75,8 +75,8 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
       ...route,
       loc_do: loc_do.length > 0 ? loc_do : [],
       box_count: boxCounts,
-  };
-});
+    };
+  });
 
 
   const mapContainerStyle = {
@@ -85,55 +85,55 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
   };
 
   const center = locationRoutes.length > 0
-  ? { lat: locationRoutes[0].latitude, lng: locationRoutes[0].longitude }
-  : { lat: 0, lng: 0 };
+    ? { lat: locationRoutes[0].latitude, lng: locationRoutes[0].longitude }
+    : { lat: 0, lng: 0 };
 
   return (
     <div className="w-2/3 space-y-4">
       <div className="bg-neutral-10 rounded-b-md p-6">
         <h2 className="text-lg font-medium mb-4">Peta Rute</h2>
         <div className="h-[400px] bg-gray-100 rounded-lg mb-4">
-        <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_KEY}>
-        <GoogleMap
-            key={pengiriman.shipment_num} // force remount saat shipment berubah
-            mapContainerStyle={mapContainerStyle}
-            center={center}
-            zoom={15}
-          >
-            {locationRoutes.length > 1 && !directionsRequested && (
-              <DirectionsService
-                options={{
-                  destination: {
-                    lat: locationRoutes[locationRoutes.length - 1].latitude,
-                    lng: locationRoutes[locationRoutes.length - 1].longitude,
-                  },
-                  origin: {
-                    lat: locationRoutes[0].latitude,
-                    lng: locationRoutes[0].longitude,
-                  },
-                  waypoints: locationRoutes.slice(1, -1).map(route => ({
-                    location: { lat: route.latitude, lng: route.longitude },
-                    stopover: true,
-                  })),
-                  travelMode: 'DRIVING',
-                }}
-                callback={directionsCallback}
-              />
-            )}
+          <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_KEY}>
+            <GoogleMap
+              key={pengiriman.shipment_num} // force remount saat shipment berubah
+              mapContainerStyle={mapContainerStyle}
+              center={center}
+              zoom={15}
+            >
+              {locationRoutes.length > 1 && !directionsRequested && (
+                <DirectionsService
+                  options={{
+                    destination: {
+                      lat: locationRoutes[locationRoutes.length - 1].latitude,
+                      lng: locationRoutes[locationRoutes.length - 1].longitude,
+                    },
+                    origin: {
+                      lat: locationRoutes[0].latitude,
+                      lng: locationRoutes[0].longitude,
+                    },
+                    waypoints: locationRoutes.slice(1, -1).map(route => ({
+                      location: { lat: route.latitude, lng: route.longitude },
+                      stopover: true,
+                    })),
+                    travelMode: 'DRIVING',
+                  }}
+                  callback={directionsCallback}
+                />
+              )}
 
-            {directions && (
-              <DirectionsRenderer
-                options={{
-                  directions: directions,
-                }}
-              />
-            )}
-          </GoogleMap>
-        </LoadScript>
+              {directions && (
+                <DirectionsRenderer
+                  options={{
+                    directions: directions,
+                  }}
+                />
+              )}
+            </GoogleMap>
+          </LoadScript>
         </div>
 
         <div className="space-y-6">
-        <div>
+          <div>
             <h3 className="text-lg font-medium mb-3">Informasi Pengiriman</h3>
             <div className="border border-primary-border rounded-lg p-4 grid grid-cols-4 gap-4">
               <div>
@@ -155,13 +155,13 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
               <div>
                 <p className="text-xs text-gray-600">Total Volume Muatan</p>
                 <p className="text-sm">
-                {`${(pengiriman.current_capacity || 0).toLocaleString('id-ID')} m³`}
+                  {`${(pengiriman.current_capacity || 0).toLocaleString('id-ID')} m³`}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-600">Total Biaya</p>
                 <p className="text-sm">
-                {`Rp${(pengiriman.shipment_cost || 0).toLocaleString('id-ID')},00`}
+                  {`Rp${(pengiriman.shipment_cost || 0).toLocaleString('id-ID')},00`}
                 </p>
               </div>
             </div>
@@ -188,61 +188,77 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
               </div>
             </div>
           </div>
-          
+
           <div>
             <h3 className="text-lg font-medium mb-3">Daftar Delivery Order</h3>
             <div className="space-y-4">
-              {updatedLocationRoutes.map((route, index) => (
-                <div key={index} className="flex items-start gap-4 relative">
-                  <div className="min-w-[24px] relative">
-                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white relative z-10">
-                      {index + 1}
+              {updatedLocationRoutes.map((route, index) => {
+                const isDC = route.is_dc === true;
+                return (
+                  <div key={index} className="flex items-start gap-4 relative">
+                    <div className="min-w-[24px] relative">
+                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white relative z-10">
+                        {index + 1}
+                      </div>
+                      {index < locationRoutes.length - 1 && (
+                        <div
+                          className="absolute left-1/2 w-0.5 bg-neutral-200"
+                          style={{
+                            height: '200px',
+                            transform: 'translateX(-50%)',
+                            top: '20px'
+                          }}
+                        />
+                      )}
                     </div>
-                    {index < locationRoutes.length - 1 && (
-                      <div 
-                        className="absolute left-1/2 w-0.5 bg-neutral-200" 
-                        style={{
-                          height: '200px',
-                          transform: 'translateX(-50%)',
-                          top: '20px'
-                        }}
-                      />
-                    )}
-                  </div>
-                  <div className="flex-1 bg-gray-50 p-4 rounded-lg">
-                    <div className="justify-between mb-2">
-                      <div>
-                        <h4 className="font-medium">{route.customer?.name || 'N/A'}</h4>
-                        <div className="mb-1">
-                          <h7 className="font-medium">{route.loc_do.join(", ")}</h7>
-                          <div className="text-sm text-gray-600">Jumlah Box: {route.box_count} Box</div>
+                    <div className="flex-1 bg-gray-50 p-4 rounded-lg">
+                      <div className="justify-between mb-2">
+                        <div>
+                          <h4 className="font-medium">
+                            {isDC ? route.dc?.name || 'Distribution Center' : route.customer?.name || 'N/A'}
+                          </h4>
+                          {!isDC && (
+                            <div className="mb-1">
+                              <h7 className="font-medium">{route.loc_do.join(", ")}</h7>
+                              <div className="text-sm text-gray-600">Jumlah Box: {route.box_count} Box</div>
+                            </div>
+                          )}
+                          {isDC && (
+                            <div className="mb-1">
+                              <div className="text-sm text-gray-600 italic">Titik Awal Pengiriman</div>
+                            </div>
+                          )}
+                          <div className="text-sm mb-1">
+                            <span className="font-normal text-primary">{route.open_hour} - {route.close_hour}</span>
+                          </div>
+                          <p className="text-sm text-gray-600">{route.address}</p>
                         </div>
-                        <div className="text-sm mb-1">
-                          <span className="font-normal text-primary">{route.open_hour} - {route.close_hour}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-3 bg-blue-50 p-3 rounded-lg">
+                        <div className="text-sm text-right">
+                          <div className="text-xs text-neutral-50">Jarak Tempuh</div>
+                          <div className="font-medium text-primary">
+                            {isDC ? '0 Km' : `${Math.round(additionalInfo[index]?.travel_distance / 1000)} Km`}
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-600">{route.address}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between mt-3 bg-blue-50 p-3 rounded-lg">
-                      <div className="text-sm text-right">
-                        <div className="text-xs text-neutral-50">Jarak Tempuh</div>
-                        <div className="font-medium text-primary">{Math.round(additionalInfo[index]?.travel_distance / 1000)} Km</div>
-                      </div>
-                      <div className="text-sm">
-                        <div className="text-xs text-neutral-50">Waktu Tempuh</div>
-                        <div className="font-medium text-primary">{convertMinutesToHoursAndMinutes(additionalInfo[index]?.travel_time)}</div>
-                      </div>
-                      <div className="text-sm text-right">
-                        <div className="text-xs text-neutral-50">Tiba</div>
-                        <div className="font-medium text-primary">{additionalInfo[index]?.eta}</div>
+                        <div className="text-sm">
+                          <div className="text-xs text-neutral-50">Waktu Tempuh</div>
+                          <div className="font-medium text-primary">
+                            {isDC ? '0 Menit' : convertMinutesToHoursAndMinutes(additionalInfo[index]?.travel_time)}
+                          </div>
+                        </div>
+                        <div className="text-sm text-right">
+                          <div className="text-xs text-neutral-50">Tiba</div>
+                          <div className="font-medium text-primary">{additionalInfo[index]?.eta}</div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </div> 
+          </div>
 
           <div>
             <div className="flex justify-end gap-2">
