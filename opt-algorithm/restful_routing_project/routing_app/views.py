@@ -324,6 +324,7 @@ def priority_optimization(request, format=None):
                 total_time = 0
                 total_time_with_waiting = 0
                 total_distance = 0
+                total_emission = 0  # Track total CO2 emissions in grams
                 
                 log_step(logger, f"[TRUCK {truck_counter}] Validating routes and calculating ETAs")
                 logger.info(f"[TRUCK {truck_counter}] reachable_locations_index from OR-Tools: {reachable_locations_index}")
@@ -374,6 +375,13 @@ def priority_optimization(request, format=None):
                             total_time_with_waiting += estimated_travel_time
                         total_time += estimated_travel_time
                         total_distance += estimated_travel_distance
+                        
+                        # Calculate emission for this segment if in emission mode
+                        if priority == 'emission':
+                            segment_emission = emissions[prev_loc_index][loc_index]
+                            total_emission += segment_emission
+                            logger.debug(f"[TRUCK {truck_counter}] Segment emission: {segment_emission}g CO2 (from loc {prev_loc_index} to {loc_index})")
+                        
                         prev_loc_index = loc_index
                     else:
                         actual_unreachable_locations_index.append(loc_index)
@@ -434,6 +442,10 @@ def priority_optimization(request, format=None):
                 
                 logger.info(f"[TRUCK {truck_counter}] Final delivery_orders_with_eta count: {len(delivery_orders_with_eta)}")
                 
+                # Log total emission if in emission mode
+                if priority == 'emission':
+                    logger.info(f"[TRUCK {truck_counter}] Total emission: {total_emission}g CO2 ({total_emission/1000:.2f}kg)")
+                
                 shipment_entry = {
                         "id_truck": truck.get_id(),
                         "delivery_orders": delivery_orders_with_eta,
@@ -442,6 +454,7 @@ def priority_optimization(request, format=None):
                         "total_time": total_time,       
                         "total_time_with_waiting": total_time_with_waiting,
                         "total_dist": total_distance,
+                        "total_emission": total_emission if priority == 'emission' else None,
                         "additional_info" : loc_dest_info,
                         "current_capacity": truck.get_current_capacity(),
                         "max_capacity": truck.get_max_capacity(),   
