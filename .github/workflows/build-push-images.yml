@@ -7,7 +7,37 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Detect which services have changed
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      opt-algorithm: ${{ steps.filter.outputs.opt-algorithm }}
+      api-gateway: ${{ steps.filter.outputs.api-gateway }}
+      storage-service: ${{ steps.filter.outputs.storage-service }}
+      tmslastmile-worker: ${{ steps.filter.outputs.tmslastmile-worker }}
+      web-frontend: ${{ steps.filter.outputs.web-frontend }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            opt-algorithm:
+              - 'opt-algorithm/**'
+            api-gateway:
+              - 'api-gateway/**'
+            storage-service:
+              - 'storage/**'
+            tmslastmile-worker:
+              - 'tmslastmile-worker/**'
+            web-frontend:
+              - 'web-frontend/**'
+
   build-and-push:
+    needs: detect-changes
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -17,27 +47,35 @@ jobs:
             context: ./opt-algorithm
             image: opt-algorithm
             build-args: ""
+            changed: ${{ needs.detect-changes.outputs.opt-algorithm }}
           - service: api-gateway
             context: ./api-gateway
             image: api-gateway
             build-args: ""
+            changed: ${{ needs.detect-changes.outputs.api-gateway }}
           - service: storage-service
             context: ./storage
             image: storage-service
             build-args: ""
+            changed: ${{ needs.detect-changes.outputs.storage-service }}
           - service: tmslastmile-worker
             context: ./tmslastmile-worker
             image: tmslastmile-worker
             build-args: ""
+            changed: ${{ needs.detect-changes.outputs.tmslastmile-worker }}
           - service: web-frontend
             context: ./web-frontend
             image: web-frontend
             build-args: |
               REACT_APP_BACKEND_URL=${{ vars.REACT_APP_BACKEND_URL }}
+            changed: ${{ needs.detect-changes.outputs.web-frontend }}
 
     permissions:
       contents: read
       packages: write
+
+    # Skip this job if the service hasn't changed (unless manually triggered)
+    if: ${{ matrix.changed == 'true' || github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Checkout repository

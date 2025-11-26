@@ -285,13 +285,15 @@ def priority_optimization(request, format=None):
                 _, times, emissions = get_distance_runner(filtered_origin_loc, priority=priority)
                 
                 times = [[t / 60.0 for t in row] for row in times]
-                time_windows = list(zip(
-                    filtered_origin_loc['open_hour'].apply(lambda x: x.hour * 60 + x.minute),
-                    filtered_origin_loc['close_hour'].apply(lambda x: x.hour * 60 + x.minute)
-                ))
+                
+                # Use extended time windows: 8 AM (480 min) to 5 PM (1020 min)
+                # This provides a 9-hour delivery window for all locations
+                num_locations = len(filtered_origin_loc)
+                time_windows = [(480, 1020) for _ in range(num_locations)]  # 8 AM to 5 PM for all
+                
                 services_time = list(filtered_origin_loc['service_time'])
                 data = {}
-                time_windows[0] = (480,480)
+                time_windows[0] = (480, 480)  # Depot starts at exactly 8 AM
                 services_time[0] = 0
                 data['time_matrix'] = times
                 data['emission_matrix'] = emissions
@@ -300,6 +302,12 @@ def priority_optimization(request, format=None):
                 data['num_vehicles'] = 1
                 data['depot'] = 0
                 data['objective_type'] = 'emission' if priority == 'emission' else 'time'
+                
+                # Log time windows for debugging
+                logger.info(f"[TRUCK {truck_counter}] Time windows being used:")
+                for idx, (tw, st) in enumerate(zip(time_windows, services_time)):
+                    loc_info = filtered_origin_loc.iloc[idx]
+                    logger.info(f"  Location {idx}: open={tw[0]}min ({tw[0]//60}:{tw[0]%60:02d}), close={tw[1]}min ({tw[1]//60}:{tw[1]%60:02d}), service_time={st}min, is_dc={loc_info.get('is_dc', False)}")
                 
                 log_step(logger, f"[TRUCK {truck_counter}] Running Google OR-Tools optimization")
                 result = google_or(data=data)
