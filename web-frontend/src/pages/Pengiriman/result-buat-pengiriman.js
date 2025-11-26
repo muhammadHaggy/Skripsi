@@ -22,18 +22,31 @@ function ResultBuatPengiriman() {
     if (storedData) {
       const response = JSON.parse(storedData);
       if (response.success) {
-        console.log(response)
+        console.log('=== RESPONSE DATA DEBUG ===');
+        console.log('Full response:', response);
+        console.log('Shipments array:', response.data.shipments);
+        console.log('Number of shipments:', response.data.shipments.length);
+
+        // Check each shipment for all_coords
+        response.data.shipments.forEach((shipment, index) => {
+          console.log(`Shipment ${index}:`, shipment);
+          console.log(`  - has all_coords?`, 'all_coords' in shipment);
+          console.log(`  - all_coords type:`, typeof shipment.all_coords);
+          console.log(`  - all_coords value:`, shipment.all_coords);
+        });
+        console.log('==========================');
+
         setPengirimanList(response.data.shipments);
         setFailedDeliveryOrders(response.data.failed_delivery_orders || []);
       }
     }
   }, []);
-  console.log(pengirimanList)
-  console.log(failedDeliveryOrders)
+  console.log('Current pengirimanList:', pengirimanList)
+  console.log('Current failedDeliveryOrders:', failedDeliveryOrders)
 
   const handleSimpanPengiriman = () => {
     setModalKonfirmasi(false);
-    navigate('/pengiriman'); 
+    navigate('/pengiriman');
   };
 
   const columns = React.useMemo(() => [
@@ -61,7 +74,7 @@ function ResultBuatPengiriman() {
         <div className="px-[50px] pt-6">
           <div className="flex items-center justify-between">
             <button className="text-primary mr-2">← Kembali</button>
-            <button 
+            <button
               className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2"
               onClick={() => setModalKonfirmasi(true)} // Show modal on click
             >
@@ -70,17 +83,17 @@ function ResultBuatPengiriman() {
             </button>
           </div>
         </div>
-        
+
         <div className="px-[50px] pt-6 flex flex-col">
           <div className="bg-primary-border rounded-t-lg pt-4 pl-4">
             <div className="flex">
-              <button 
+              <button
                 onClick={() => setActiveTab('berhasil')}
                 className={`px-4 py-2 ${activeTab === 'berhasil' ? 'bg-white border-primary-hover font-medium rounded-t-lg' : 'bg-primary-surface text-gray-600 rounded-t-lg'}`}
               >
                 Berhasil ({pengirimanList.length} Pengiriman)
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('gagal')}
                 className={`px-4 py-2 border-primary-hover ${activeTab === 'gagal' ? 'bg-white border-primary-hover font-medium rounded-t-lg' : 'bg-primary-surface text-gray-600 rounded-t-lg'}`}
               >
@@ -88,26 +101,26 @@ function ResultBuatPengiriman() {
               </button>
             </div>
           </div>
-          
+
           {activeTab === 'berhasil' ? (
             <div className="bg-white rounded-b-lg flex gap-4">
-              <ListHasilPengiriman 
-                onSelect={setSelectedPengiriman} 
-                activeTab={activeTab} 
-                pengirimanList={pengirimanList} 
-              />
-              <PengirimanDetail  
-                pengiriman={selectedPengiriman} 
+              <ListHasilPengiriman
+                onSelect={setSelectedPengiriman}
                 activeTab={activeTab}
-                updatePengirimanList={updatePengirimanList} 
+                pengirimanList={pengirimanList}
+              />
+              <PengirimanDetail
+                pengiriman={selectedPengiriman}
+                activeTab={activeTab}
+                updatePengirimanList={updatePengirimanList}
               />
             </div>
           ) : (
             <div className="bg-white rounded-b-lg p-4">
               <Loading visibility={loading} />
-              <BaseTablePagination 
-                columns={columns} 
-                data={failedDeliveryOrders} 
+              <BaseTablePagination
+                columns={columns}
+                data={failedDeliveryOrders}
                 judul={'Daftar DO Gagal'}
               />
             </div>

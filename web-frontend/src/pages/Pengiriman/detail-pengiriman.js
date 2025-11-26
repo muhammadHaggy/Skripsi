@@ -1,26 +1,25 @@
 import React, { useState, useEffect } from "react";
-import { LoadScript, GoogleMap, DirectionsService, DirectionsRenderer } from "@react-google-maps/api";
+import { LoadScript, GoogleMap, Polyline, Marker } from "@react-google-maps/api";
 import { Modal } from "../../components/Modal";
 import axiosAuthInstance from '../../utils/axios-auth-instance';
 
 function DetailPengiriman({ pengiriman, updatePengirimanList }) {
   const [modalKonfirmasi, setModalKonfirmasi] = useState(false);
-  const [directions, setDirections] = useState(null);
-  const [directionsRequested, setDirectionsRequested] = useState(false)
 
   useEffect(() => {
-    setDirections(null);              // reset rute
-    setDirectionsRequested(false);   // izinkan request rute baru
-  }, [pengiriman]);
-
-  const directionsCallback = (response) => {
-    if (response !== null && response.status === 'OK') {
-      setDirections(response);
-      setDirectionsRequested(true);
-    } else {
-      console.error('Gagal mendapatkan rute:', response);
+    // DEBUG LOGGING
+    if (pengiriman) {
+      console.log('=== PENGIRIMAN DATA DEBUG ===');
+      console.log('Full pengiriman object:', pengiriman);
+      console.log('all_coords exists?', 'all_coords' in pengiriman);
+      console.log('all_coords value:', pengiriman.all_coords);
+      console.log('all_coords type:', typeof pengiriman.all_coords);
+      console.log('all_coords length:', pengiriman.all_coords?.length);
+      console.log('location_routes:', pengiriman.location_routes);
+      console.log('location_routes length:', pengiriman.location_routes?.length);
+      console.log('============================');
     }
-  };
+  }, [pengiriman]);
 
   if (!pengiriman) {
     return (
@@ -78,15 +77,38 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
     };
   });
 
+  // Parse all_coords if it's a string, otherwise use it directly
+  let routeCoordinates = [];
+  if (pengiriman.all_coords) {
+    if (typeof pengiriman.all_coords === 'string') {
+      try {
+        routeCoordinates = JSON.parse(pengiriman.all_coords);
+      } catch (e) {
+        console.error('Failed to parse all_coords:', e);
+      }
+    } else if (Array.isArray(pengiriman.all_coords)) {
+      routeCoordinates = pengiriman.all_coords;
+    }
+  }
 
   const mapContainerStyle = {
     width: "100%",
     height: "400px",
   };
 
-  const center = locationRoutes.length > 0
-    ? { lat: locationRoutes[0].latitude, lng: locationRoutes[0].longitude }
-    : { lat: 0, lng: 0 };
+  // Determine map center - use first coordinate from all_coords or first location route
+  let center = { lat: 0, lng: 0 };
+  if (routeCoordinates.length > 0) {
+    center = { lat: routeCoordinates[0][0], lng: routeCoordinates[0][1] };
+  } else if (locationRoutes.length > 0) {
+    center = { lat: locationRoutes[0].latitude, lng: locationRoutes[0].longitude };
+  }
+
+  // Convert route coordinates to Google Maps format
+  const routePath = routeCoordinates.map(coord => ({
+    lat: coord[0],
+    lng: coord[1]
+  }));
 
   return (
     <div className="w-2/3 space-y-4">
@@ -95,39 +117,37 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
         <div className="h-[400px] bg-gray-100 rounded-lg mb-4">
           <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_KEY}>
             <GoogleMap
-              key={pengiriman.shipment_num} // force remount saat shipment berubah
+              key={pengiriman.shipment_num}
               mapContainerStyle={mapContainerStyle}
               center={center}
-              zoom={15}
+              zoom={12}
             >
-              {locationRoutes.length > 1 && !directionsRequested && (
-                <DirectionsService
+              {/* Render the route using Polyline from all_coords */}
+              {routePath.length > 0 && (
+                <Polyline
+                  path={routePath}
                   options={{
-                    destination: {
-                      lat: locationRoutes[locationRoutes.length - 1].latitude,
-                      lng: locationRoutes[locationRoutes.length - 1].longitude,
-                    },
-                    origin: {
-                      lat: locationRoutes[0].latitude,
-                      lng: locationRoutes[0].longitude,
-                    },
-                    waypoints: locationRoutes.slice(1, -1).map(route => ({
-                      location: { lat: route.latitude, lng: route.longitude },
-                      stopover: true,
-                    })),
-                    travelMode: 'DRIVING',
+                    strokeColor: "#4285F4",
+                    strokeOpacity: 1.0,
+                    strokeWeight: 4,
                   }}
-                  callback={directionsCallback}
                 />
               )}
 
-              {directions && (
-                <DirectionsRenderer
-                  options={{
-                    directions: directions,
+              {/* Add markers for each location in the route */}
+              {locationRoutes.map((route, index) => (
+                <Marker
+                  key={`marker-${index}`}
+                  position={{ lat: route.latitude, lng: route.longitude }}
+                  label={{
+                    text: `${index + 1}`,
+                    color: "white",
+                    fontSize: "12px",
+                    fontWeight: "bold"
                   }}
+                  title={route.is_dc ? route.dc?.name : route.customer?.name}
                 />
-              )}
+              ))}
             </GoogleMap>
           </LoadScript>
         </div>
