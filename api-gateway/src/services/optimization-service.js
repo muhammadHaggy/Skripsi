@@ -127,6 +127,8 @@ const priorityOptimizationService = async (request) => {
           total_time: shipment.total_time,
           total_time_with_waiting: shipment.total_time_with_waiting,
           total_dist: shipment.total_dist,
+          // Forward total emission from Django optimizer (grams of CO2) when in emission mode
+          total_emission: shipment.total_emission ?? null,
           additional_info: shipment.additional_info,
           current_capacity: shipment.current_capacity,
           max_capacity: shipment.max_capacity,
