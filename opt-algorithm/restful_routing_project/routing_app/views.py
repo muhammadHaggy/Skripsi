@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from sklearn.preprocessing import MinMaxScaler
@@ -6,7 +7,8 @@ from .nearest_neighbor import fetch_concatenate_route
 from .helper import get_distance_runner, get_directions, dbscan_cluster, handle_noise_with_kmeans, geodesic_distance
 from .google_or import google_or
 import json
-from .models import Truck
+from django.utils import timezone
+from .models import Truck, Shipment
 import pandas as pd
 import collections
 collections.Iterable = collections.abc.Iterable
@@ -41,7 +43,8 @@ def get_delivery_orders__with_demand_dataframe(delivery_orders):
         'volume' :[],
         'quantity' : [],
         'loc_dest_id' : [],
-        'demand':[]
+        'demand':[],
+        'shipment_id': []
     }
     for do in delivery_orders:
         df_delivery_orders['id'].append(do['id'])
@@ -50,6 +53,7 @@ def get_delivery_orders__with_demand_dataframe(delivery_orders):
         df_delivery_orders['quantity'].append(do['quantity'])
         df_delivery_orders['loc_dest_id'].append(do['loc_dest']['id'])
         df_delivery_orders['demand'].append(do['demand'])
+        df_delivery_orders['shipment_id'].append(do.get('shipment_id'))
 
     return pd.DataFrame(df_delivery_orders)
 
@@ -449,6 +453,24 @@ def priority_optimization(request, format=None):
                     logger.info(f"[TRUCK {truck_counter}] Added delivery_order: do_id={do_id}, loc_dest_id={loc_dest_id}, eta={eta_value}")
                 
                 logger.info(f"[TRUCK {truck_counter}] Final delivery_orders_with_eta count: {len(delivery_orders_with_eta)}")
+
+                shipment_ids = []
+                if 'shipment_id' in valid_dos.columns:
+                    shipment_ids = (
+                        valid_dos['shipment_id']
+                        .dropna()
+                        .unique()
+                        .tolist()
+                    )
+                
+                persist_shipment_metrics(
+                    shipment_ids=shipment_ids,
+                    total_distance_m=total_distance,
+                    total_time_min=total_time,
+                    total_time_with_waiting_min=total_time_with_waiting,
+                    total_emission_g=total_emission if priority == 'emission' else None,
+                    priority=priority,
+                )
                 
                 # Log total emission if in emission mode
                 if priority == 'emission':
@@ -504,6 +526,64 @@ def priority_optimization(request, format=None):
 
 def relative_position(longitude, reference_longitude):
     return '+' if longitude > reference_longitude else '-'
+
+def _decimal_or_none(value):
+    if value is None:
+        return None
+    return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+def _normalize_shipment_ids(shipment_ids):
+    normalized_ids = set()
+    for raw_id in shipment_ids or []:
+        try:
+            if raw_id is None:
+                continue
+            normalized_ids.add(int(raw_id))
+        except (TypeError, ValueError):
+            logger.warning(f"[ShipmentMetrics] Unable to parse shipment id value: {raw_id}")
+    return sorted(normalized_ids)
+
+def persist_shipment_metrics(
+    shipment_ids,
+    total_distance_m,
+    total_time_min,
+    total_time_with_waiting_min,
+    total_emission_g,
+    priority,
+):
+    """
+    Persist aggregated routing metrics into the Shipment table.
+
+    To avoid double counting we only persist when the optimized route
+    maps to a single shipment id.
+    """
+    normalized_ids = _normalize_shipment_ids(shipment_ids)
+    if not normalized_ids:
+        logger.debug("[ShipmentMetrics] No shipment ids available for persistence; skipping")
+        return
+
+    if len(normalized_ids) > 1:
+        logger.warning(f"[ShipmentMetrics] Multiple shipment ids on a single route {normalized_ids}; skipping persistence")
+        return
+
+    shipment_id = normalized_ids[0]
+    payload = {
+        "total_distance_m": int(round(total_distance_m)) if total_distance_m is not None else None,
+        "total_travel_time_min": _decimal_or_none(total_time_min),
+        "total_travel_time_with_waiting_min": _decimal_or_none(total_time_with_waiting_min),
+        "total_co2_emission_g": _decimal_or_none(total_emission_g),
+        "routing_priority": priority,
+        "routing_run_at": timezone.now(),
+    }
+
+    try:
+        updated = Shipment.objects.filter(id=shipment_id).update(**payload)
+        if updated == 0:
+            logger.warning(f"[ShipmentMetrics] No Shipment row updated for shipment_id={shipment_id}")
+        else:
+            logger.info(f"[ShipmentMetrics] Persisted routing metrics for shipment_id={shipment_id}")
+    except Exception as exc:
+        logger.error(f"[ShipmentMetrics] Failed to persist shipment_id={shipment_id}: {exc}", exc_info=True)
 
 def calculate_balance_priority(row):
     priority_value = 0.5 * row['demand_scaled'] + 0.5 * row['distance_from_origin']

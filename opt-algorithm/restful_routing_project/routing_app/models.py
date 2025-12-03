@@ -85,3 +85,22 @@ class DeliveryOrder(models.Model):
     
     def set_truck_id(self, truck_id):
         self.truck_id = truck_id
+
+
+class Shipment(models.Model):
+    """
+    Minimal projection of the legacy Shipment table so we can update
+    routing and emission metrics without redefining the whole schema.
+    """
+
+    id = models.PositiveIntegerField(primary_key=True)
+    total_distance_m = models.BigIntegerField(null=True, blank=True)
+    total_travel_time_min = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    total_travel_time_with_waiting_min = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    total_co2_emission_g = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    routing_priority = models.CharField(max_length=16, null=True, blank=True)
+    routing_run_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'shipment'
+        managed = False
