@@ -188,6 +188,15 @@ function DetailPengiriman({ pengiriman, updatePengirimanList }) {
                   {`Rp${(pengiriman.shipment_cost || 0).toLocaleString('id-ID')},00`}
                 </p>
               </div>
+              {pengiriman.total_emission !== null &&
+                pengiriman.total_emission !== undefined && (
+                  <div>
+                    <p className="text-xs text-gray-600">Total Emisi CO2</p>
+                    <p className="text-sm">
+                      {(pengiriman.total_emission / 1000).toFixed(2)} kg
+                    </p>
+                  </div>
+                )}
             </div>
           </div>
 
