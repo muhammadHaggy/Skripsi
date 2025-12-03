@@ -82,6 +82,10 @@ services:
       - MINIO_ENDPOINT=${MINIO_ENDPOINT}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/paragon
+    depends_on:
+      db:
+        condition: service_healthy
     restart: always
     networks:
       tms_net: {}
